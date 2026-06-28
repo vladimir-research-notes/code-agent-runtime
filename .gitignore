@@ -1,0 +1,57 @@
+# Local Claude Code overrides (never commit personal/local settings)
+.claude/settings.local.json
+
+# Python virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Python caches and bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.cache/
+
+# Build / packaging artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Coverage / test artifacts
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Node (only static HTML is committed under site/)
+node_modules/
+
+# Secrets and credentials (never commit)
+.env
+.env.*
+*.key
+*.pem
+
+# Model weights / large generated artifacts
+*.bin
+*.pt
+*.onnx
+*.gguf
+*.safetensors
+*.h5
+*.ckpt
+
+# Logs
+*.log
+
+# OS / editor cruft
+.DS_Store
+*.swp
+*~
+
+.claude/settings.json
