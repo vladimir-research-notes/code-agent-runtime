@@ -111,7 +111,7 @@ for MILESTONE in $(seq "$START" "$END"); do
 
   if [ -f pyproject.toml ]; then
     echo "Running smoke validation after Milestone $MILESTONE..."
-    python -m pytest -q || {
+    python3 -m pytest -q || {
       echo "ERROR: pytest failed after Milestone $MILESTONE."
       echo "Stopping so you can inspect."
       exit 1
