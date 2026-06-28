@@ -26,7 +26,7 @@
 <main>
   <h1>Security model</h1>
   <p class="lede">Honest framing: this is not a production-grade sandbox.</p>
-  <p><span class="status scaffold">status: threat model documented; controls planned (Milestone 7)</span></p>
+  <p><span class="status scaffold">status: threat model documented; repo hygiene scanner live (M1); runtime controls planned (M7)</span></p>
 
   <div class="callout">A capable adversary, or an agent running with broad host permissions,
   can escape the controls described here. The goal is blast-radius reduction and
@@ -52,19 +52,28 @@
   </ul>
 
   <h2>Current implementation status</h2>
-  <p>Runtime containment is not implemented yet. Today's guards are repo-level
-  <code>.gitignore</code> and <code>.claude/settings.json</code> deny rules plus the
-  no-secrets-committed operating principle. Repo hygiene scanning lands in Milestone 1.</p>
+  <p>Runtime containment is not implemented yet. Today's guards are repo-level:
+  <code>.gitignore</code> and <code>.claude/settings.json</code> deny rules, the
+  no-secrets-committed operating principle, and — as of Milestone 1 — an automated
+  <strong>repository hygiene scanner</strong>. It inspects git-tracked files for
+  secrets, virtualenvs, caches, <code>node_modules</code>, large files, result blobs,
+  model weights, and a committed <code>.claude/settings.local.json</code>, with text
+  and JSON output and an exit code suitable for a pre-commit gate. Secret detection is
+  best-effort and heuristic — see <a href="limitations.html">Limitations</a>.</p>
 
   <h2>Relevant files</h2>
   <ul class="files">
     <li>docs/SECURITY_MODEL.md</li>
+    <li>src/code_agent_runtime/hygiene.py, src/code_agent_runtime/environment.py</li>
+    <li>scripts/00_check_environment.py, scripts/04_check_repo_hygiene.py</li>
     <li>.gitignore, .claude/settings.json</li>
     <li>src/code_agent_runtime/sandbox/ (planned)</li>
   </ul>
 
   <h2>Current test/result status</h2>
-  <p>No security tests yet. Validation will assert blocked-vs-allowed behavior on unsafe demos.</p>
+  <p>Hygiene and environment checks are covered by CPU-only tests, including a guard
+  that scans the committed tree and asserts it is clean. Runtime-containment tests
+  (blocked-vs-allowed on unsafe demos) arrive with Milestone 7.</p>
 
   <h2>Open questions / limitations</h2>
   <ul>

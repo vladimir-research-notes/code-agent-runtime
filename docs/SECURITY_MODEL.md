@@ -1,8 +1,9 @@
 # Security model
 
-> **Status:** skeleton (Milestone 0). This document states the *intended* threat
-> model and is explicit about what is **not** yet implemented or proven.
-> Containment primitives arrive in Milestone 7.
+> **Status:** threat model documented; **repository hygiene scanning implemented
+> (Milestone 1)**. Runtime containment primitives (path/command policies, network
+> flag, runtime/output caps) still arrive in Milestone 7. This document is
+> explicit about what is and is not yet implemented or proven.
 
 ## Honest framing
 
@@ -42,18 +43,43 @@ malicious code.
 
 ## Defense-in-depth today
 
-The repository itself is protected by `.claude/settings.local.json`-aware
-ignore rules and `.gitignore` entries for secrets, plus the operating
-principle that no secrets are committed. Repo hygiene scanning arrives in
-Milestone 1.
+The repository itself is protected by `.gitignore` rules (secrets, venvs,
+caches, weights), `.claude/settings.json` deny rules, the operating principle
+that no secrets are committed, and — as of Milestone 1 — an automated
+**repository hygiene scanner**.
+
+### Repository hygiene scanner (Milestone 1)
+
+`code_agent_runtime.hygiene` scans the files actually under version control
+(`git ls-files`; filesystem-walk fallback) and flags:
+
+- **secrets** — AWS keys, private-key blocks, provider API-key shapes, and a
+  heuristic `key = <16+ chars>` assignment rule with a placeholder filter
+  (errors);
+- **virtualenvs** — `.venv`/`venv` trees and `pyvenv.cfg` markers (errors);
+- **model weights** — `*.safetensors`, `*.gguf`, `*.pt`, ... (errors);
+- **committed `.claude/settings.local.json`** (error);
+- **caches**, **`node_modules`**, **large files**, **result blobs** (warnings;
+  `--strict` promotes them to failures).
+
+This is a *commit-hygiene* guard, not a runtime control, and secret detection is
+**best-effort and heuristic** — high-precision patterns that favor avoiding
+false positives over catching every possible secret. It is not a guarantee that
+no secret can ever be committed. An inline `# hygiene: ignore` suppresses a line.
+Run it with `python3 scripts/04_check_repo_hygiene.py` or
+`code-agent-runtime hygiene`.
 
 ## Current implementation status
 
-- [ ] None of the runtime containment primitives are implemented yet.
 - [x] Documented threat model and non-goals (this file).
+- [x] Repository hygiene scanner over tracked files (Milestone 1).
+- [x] Environment check (offline, CPU-only policy) (Milestone 1).
+- [ ] Runtime containment primitives (paths, commands, network, caps) — Milestone 7.
 
 ## Relevant files
 
+- `src/code_agent_runtime/hygiene.py`, `src/code_agent_runtime/environment.py`
+- `scripts/00_check_environment.py`, `scripts/04_check_repo_hygiene.py`
 - `.gitignore`, `.claude/settings.json` (repo-level guards)
 - `docs/LIMITATIONS.md`, `docs/PLAN.md`
 

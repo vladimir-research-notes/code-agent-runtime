@@ -51,12 +51,16 @@
   actions are blocked while allowed actions still work.</p>
 
   <h2>Current implementation status</h2>
-  <p>Not implemented. Today's only guards are repo-level: <code>.gitignore</code> and
-  <code>.claude/settings.json</code> deny rules.</p>
+  <p>Runtime containment is not implemented. Today's guards are repo-level:
+  <code>.gitignore</code> and <code>.claude/settings.json</code> deny rules, plus a
+  <strong>repository hygiene scanner</strong> (Milestone 1) that flags secrets and junk
+  in tracked files. That scanner is a commit-time guard, not a runtime sandbox — the
+  containment primitives above are still planned.</p>
 
   <h2>Relevant files</h2>
   <ul class="files">
-    <li>src/code_agent_runtime/sandbox/ (planned)</li>
+    <li>src/code_agent_runtime/hygiene.py (commit-hygiene guard, Milestone 1)</li>
+    <li>src/code_agent_runtime/sandbox/ (runtime controls, planned)</li>
     <li>.gitignore, .claude/settings.json</li>
     <li>docs/SECURITY_MODEL.md</li>
   </ul>

@@ -26,16 +26,25 @@
 <main>
   <h1>Limitations &amp; non-goals</h1>
   <p class="lede">What is true today, and what this project deliberately is not.</p>
-  <p><span class="status scaffold">status: current as of Milestone 0</span></p>
+  <p><span class="status scaffold">status: current as of Milestone 1</span></p>
 
   <h2>Brief explanation</h2>
-  <p>At Milestone 0 the repository is a scaffold: package, CLI, docs, website, packaging,
-  and a smoke test. The agent runtime, tools, sandbox, tracing, and scoring are not built yet.</p>
+  <p>At Milestone 1 the repository has a package, CLI, docs, website, packaging, CPU-only
+  tests, an environment check, and a repository hygiene scanner. The agent runtime, tools,
+  sandbox enforcement, tracing, and scoring are not built yet.</p>
 
   <h2>Deeper technical explanation</h2>
   <h3>Known limitations</h3>
   <ul>
-    <li><strong>No sandbox.</strong> No enforced isolation — see <a href="security.html">Security</a>.</li>
+    <li><strong>No sandbox.</strong> No enforced runtime isolation — see
+      <a href="security.html">Security</a>. The hygiene scanner is a commit-time guard, not a
+      runtime control.</li>
+    <li><strong>Hygiene secret detection is heuristic.</strong> High-precision patterns favor
+      avoiding false positives over catching every secret; it can miss novel or obfuscated
+      credentials and is not a guarantee.</li>
+    <li><strong>Hygiene scope is tracked files.</strong> Only <code>git ls-files</code> content is
+      scanned by default; bare <code>env</code>/<code>ENV</code> dirs are not treated as
+      virtualenvs. Use <code>--include-untracked</code> to widen scope.</li>
     <li><strong>No evaluations.</strong> <a href="results.html">Results</a> is intentionally empty.</li>
     <li><strong>No model integration.</strong> No LLM calls or Claude adapters yet.</li>
     <li><strong>Environment assumption.</strong> Tests assume <code>python3</code> 3.10+ with
@@ -58,7 +67,8 @@
   </ul>
 
   <h2>Current test/result status</h2>
-  <p>CPU-only scaffold tests pass; nothing else is claimed.</p>
+  <p>CPU-only tests pass, including environment and hygiene-scanner tests; nothing beyond
+  Milestone 1 is claimed.</p>
 
   <h2>Open questions / limitations</h2>
   <p>Each milestone narrows these as real subsystems land and are tested.</p>

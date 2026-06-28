@@ -8,10 +8,11 @@ infrastructure *around* coding agents — task setup, tools, permissions,
 execution, tracing, replay, scoring, regression comparison, and reports. It is
 **not** a tutorial, a clone of a commercial tool, or a benchmark leaderboard.
 
-> Status: **Milestone 0 — Scaffold and project foundations.** This repository is
-> being built milestone by milestone (see [`docs/PLAN.md`](docs/PLAN.md)). At
-> this milestone the package, documentation, website, packaging, and a smoke
-> test exist; the runtime itself is not yet implemented.
+> Status: **Milestone 1 — Environment and repository hygiene.** This repository
+> is being built milestone by milestone (see [`docs/PLAN.md`](docs/PLAN.md)). The
+> package, docs, website, packaging, and tests exist, plus an environment check
+> and a repository hygiene scanner. The agent runtime itself (tasks, tools,
+> execution, tracing, scoring) is not yet implemented.
 
 ## Design constraints
 
@@ -51,6 +52,26 @@ PYTHONPATH=src python3 -m code_agent_runtime info
 # Run the test suite (pytest must be available):
 python3 -m pytest -q
 ```
+
+### Operational checks (Milestone 1)
+
+Two read-only, offline checks enforce the project's CPU-only / no-committed-junk
+principles:
+
+```bash
+# Is this host able to build and test the runtime, offline and free?
+python3 scripts/00_check_environment.py
+PYTHONPATH=src python3 -m code_agent_runtime env-check --json
+
+# Does any tracked file contain a secret or junk that shouldn't be committed?
+python3 scripts/04_check_repo_hygiene.py            # scans this repo
+PYTHONPATH=src python3 -m code_agent_runtime hygiene --root . --strict
+```
+
+The hygiene scanner inspects **git-tracked files** (filesystem-walk fallback
+outside a git work tree) for secrets, virtualenvs, caches, `node_modules`, large
+files, result blobs, model weights, and a committed local Claude settings file.
+Secret detection is heuristic; see [`docs/SECURITY_MODEL.md`](docs/SECURITY_MODEL.md).
 
 Optionally install the package and dev extras in a virtual environment:
 
