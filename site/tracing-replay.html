@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tracing &amp; replay — Code Agent Runtime</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="index.html">Code Agent Runtime</a>
+  <div class="tagline">A local-first runtime for running, tracing, sandboxing, replaying, and evaluating coding agents.</div>
+  <nav class="site">
+    <a href="index.html">Home</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="task-format.html">Task format</a>
+    <a href="sandboxing.html">Sandboxing</a>
+    <a href="tracing-replay.html" class="active">Tracing &amp; replay</a>
+    <a href="evals.html">Evals</a>
+    <a href="results.html">Results</a>
+    <a href="security.html">Security</a>
+    <a href="limitations.html">Limitations</a>
+    <a href="roadmap.html">Roadmap</a>
+  </nav>
+</header>
+<main>
+  <h1>Tracing &amp; replay</h1>
+  <p class="lede">A run that cannot be replayed from its trace is a bug, not a feature.</p>
+  <p><span class="status scaffold">status: planned (Milestones 5–6) — not implemented yet</span></p>
+
+  <h2>Brief explanation</h2>
+  <p>Every run is recorded as a structured trace capturing what the agent did and what the
+  runtime observed. Traces are the evidence behind every reported result.</p>
+
+  <h2>Deeper technical explanation</h2>
+  <p>A trace will include task metadata, workspace metadata, agent actions, tool calls,
+  command stdout/stderr, file diffs, test results, timestamps, and exit status. Replay
+  reconstructs the action timeline, tool calls, diffs, tests, and failure point — it does
+  not need to re-execute every command to be useful.</p>
+
+  <h2>Current implementation status</h2>
+  <p>Not implemented. The trace schema and recorder land in Milestone 5; inspection and
+  replay tooling in Milestone 6.</p>
+
+  <h2>Relevant files</h2>
+  <ul class="files">
+    <li>src/code_agent_runtime/traces/ (planned)</li>
+    <li>docs/ARCHITECTURE.md</li>
+    <li>docs/RESEARCH_QUESTIONS.md</li>
+  </ul>
+
+  <h2>Current test/result status</h2>
+  <p>No trace tests yet. Validation will assert that a smoke run produces a schema-valid,
+  summarizable trace.</p>
+
+  <h2>Open questions / limitations</h2>
+  <ul>
+    <li>What is the minimal trace schema sufficient for faithful replay?</li>
+    <li>How to redact secrets from captured command output before persisting.</li>
+  </ul>
+</main>
+<footer class="site">Code Agent Runtime — research/engineering scaffold. Built milestone by milestone.</footer>
+</body>
+</html>

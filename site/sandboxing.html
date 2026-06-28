@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sandboxing — Code Agent Runtime</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="index.html">Code Agent Runtime</a>
+  <div class="tagline">A local-first runtime for running, tracing, sandboxing, replaying, and evaluating coding agents.</div>
+  <nav class="site">
+    <a href="index.html">Home</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="task-format.html">Task format</a>
+    <a href="sandboxing.html" class="active">Sandboxing</a>
+    <a href="tracing-replay.html">Tracing &amp; replay</a>
+    <a href="evals.html">Evals</a>
+    <a href="results.html">Results</a>
+    <a href="security.html">Security</a>
+    <a href="limitations.html">Limitations</a>
+    <a href="roadmap.html">Roadmap</a>
+  </nav>
+</header>
+<main>
+  <h1>Sandboxing</h1>
+  <p class="lede">Blast-radius reduction and observability for semi-trusted agents.</p>
+  <p><span class="status scaffold">status: planned (Milestone 7) — not implemented yet</span></p>
+
+  <div class="callout">This is <strong>not</strong> a production-grade sandbox. The goal is to
+  reduce accidental damage and make actions observable — not to contain malicious native code.
+  See <a href="security.html">Security</a>.</div>
+
+  <h2>Brief explanation</h2>
+  <p>The sandbox decides what an agent is allowed to read, write, and run, and records what
+  it actually did. Tools execute; the sandbox enforces policy.</p>
+
+  <h2>Deeper technical explanation</h2>
+  <p>Planned containment primitives:</p>
+  <ul>
+    <li>Allowed read paths, allowed write paths, denied paths.</li>
+    <li>Command allowlist and denylist.</li>
+    <li>Network policy flag (default: no network).</li>
+    <li>Max runtime and max output size.</li>
+    <li>Secret scanner over inputs, outputs, and traces.</li>
+    <li>Optional containerized runner for stronger isolation.</li>
+  </ul>
+  <p>Unsafe examples (reading <code>.env</code>, reading <code>~/.aws/credentials</code>,
+  writing outside the workspace, a dangerous shell command) will demonstrate that blocked
+  actions are blocked while allowed actions still work.</p>
+
+  <h2>Current implementation status</h2>
+  <p>Not implemented. Today's only guards are repo-level: <code>.gitignore</code> and
+  <code>.claude/settings.json</code> deny rules.</p>
+
+  <h2>Relevant files</h2>
+  <ul class="files">
+    <li>src/code_agent_runtime/sandbox/ (planned)</li>
+    <li>.gitignore, .claude/settings.json</li>
+    <li>docs/SECURITY_MODEL.md</li>
+  </ul>
+
+  <h2>Current test/result status</h2>
+  <p>No sandbox tests yet. Validation will assert blocked-vs-allowed behavior on unsafe demos.</p>
+
+  <h2>Open questions / limitations</h2>
+  <ul>
+    <li>How much isolation is achievable without containers or root?</li>
+    <li>Right default network posture for scripted vs. LLM agents.</li>
+  </ul>
+</main>
+<footer class="site">Code Agent Runtime — research/engineering scaffold. Built milestone by milestone.</footer>
+</body>
+</html>

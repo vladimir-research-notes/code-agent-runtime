@@ -1,0 +1,141 @@
+/* Code Agent Runtime — shared static-site styles.
+   Plain CSS, no build step, no external fonts or assets. */
+
+:root {
+  --bg: #0f1115;
+  --panel: #171a21;
+  --border: #2a2f3a;
+  --text: #d7dbe2;
+  --muted: #9aa3b2;
+  --accent: #6ea8fe;
+  --accent-soft: #1d2740;
+  --ok: #7ee2a8;
+  --warn: #f0c674;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.6;
+  color: var(--text);
+  background: var(--bg);
+}
+
+header.site {
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  padding: 1rem 1.25rem;
+}
+
+header.site .brand {
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--text);
+  text-decoration: none;
+}
+
+header.site .tagline {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-top: 0.15rem;
+}
+
+nav.site {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.9rem;
+  margin-top: 0.75rem;
+}
+
+nav.site a {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.9rem;
+  padding: 0.15rem 0.1rem;
+  border-bottom: 2px solid transparent;
+}
+
+nav.site a:hover { color: var(--text); }
+nav.site a.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+main {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 4rem;
+}
+
+h1 { font-size: 1.8rem; margin: 0 0 0.25rem; }
+h2 {
+  font-size: 1.25rem;
+  margin: 2rem 0 0.5rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid var(--border);
+}
+h3 { font-size: 1.05rem; margin: 1.2rem 0 0.4rem; }
+
+p, li { color: var(--text); }
+a { color: var(--accent); }
+
+.lede { color: var(--muted); font-size: 1.05rem; }
+
+.status {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-family: var(--mono);
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.status.scaffold { color: var(--warn); }
+
+code, pre {
+  font-family: var(--mono);
+  font-size: 0.85rem;
+}
+
+pre {
+  background: #0b0d12;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.9rem 1rem;
+  overflow-x: auto;
+}
+
+code { background: #0b0d12; padding: 0.1rem 0.35rem; border-radius: 4px; }
+pre code { background: none; padding: 0; }
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.75rem 0;
+  font-size: 0.9rem;
+}
+th, td { border: 1px solid var(--border); padding: 0.45rem 0.6rem; text-align: left; }
+th { background: var(--panel); color: var(--muted); }
+
+ul.files { list-style: none; padding-left: 0; }
+ul.files li { font-family: var(--mono); font-size: 0.85rem; color: var(--muted); }
+
+.callout {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  background: var(--panel);
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  margin: 1rem 0;
+  color: var(--muted);
+}
+
+footer.site {
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.85rem;
+  padding: 1.5rem 1.25rem;
+  text-align: center;
+}

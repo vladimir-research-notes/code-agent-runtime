@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Code Agent Runtime</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="index.html">Code Agent Runtime</a>
+  <div class="tagline">A local-first runtime for running, tracing, sandboxing, replaying, and evaluating coding agents.</div>
+  <nav class="site">
+    <a href="index.html" class="active">Home</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="task-format.html">Task format</a>
+    <a href="sandboxing.html">Sandboxing</a>
+    <a href="tracing-replay.html">Tracing &amp; replay</a>
+    <a href="evals.html">Evals</a>
+    <a href="results.html">Results</a>
+    <a href="security.html">Security</a>
+    <a href="limitations.html">Limitations</a>
+    <a href="roadmap.html">Roadmap</a>
+  </nav>
+</header>
+<main>
+  <h1>Code Agent Runtime</h1>
+  <p class="lede">An independent systems/research platform for the runtime infrastructure
+  <em>around</em> coding agents: task setup, tools, permissions, execution, tracing, replay,
+  scoring, regression comparison, and reports.</p>
+
+  <p><span class="status scaffold">status: Milestone 0 — scaffold</span></p>
+
+  <h2>Brief explanation</h2>
+  <p>Modern coding agents need a runtime, not just a prompt. This project builds the
+  controlled environment that makes coding-agent behavior <strong>reproducible,
+  inspectable, and evaluable</strong>: versioned tasks, structured tools, permission
+  policies, command execution, trace recording, replay, scoring, and reports.</p>
+
+  <h2>Deeper technical explanation</h2>
+  <p>A run takes a versioned task and an agent and produces a scored, replayable trace:</p>
+  <pre><code>task -&gt; workspace -&gt; agent loop -&gt; tools -&gt; tests -&gt; scoring -&gt; report
+                         \__ trace recorder captures every step __/</code></pre>
+  <p>Deterministic mock and scripted agents are first-class so the whole pipeline can be
+  exercised without any model call. Optional, cost-guarded Claude API / Claude Code
+  adapters are added only after the runtime foundations exist.</p>
+
+  <h2>Current implementation status</h2>
+  <ul>
+    <li>Package scaffold and CLI — <strong>done</strong>.</li>
+    <li>Documentation skeleton and multi-page website — <strong>done</strong>.</li>
+    <li>Tasks, tools, runtime loop, sandbox, tracing, scoring, reports — <em>pending</em>.</li>
+  </ul>
+
+  <h2>Relevant files</h2>
+  <ul class="files">
+    <li>src/code_agent_runtime/cli.py</li>
+    <li>docs/PLAN.md</li>
+    <li>README.md</li>
+  </ul>
+
+  <h2>Current test/result status</h2>
+  <p>CPU-only smoke and scaffold-layout tests pass (<code>python3 -m pytest -q</code>).
+  No evaluations have been run; see <a href="results.html">Results</a>.</p>
+
+  <h2>Open questions / limitations</h2>
+  <p>No sandbox or evaluations are implemented yet. This is not a production-grade
+  sandbox and not a benchmark leaderboard. See <a href="limitations.html">Limitations</a>.</p>
+</main>
+<footer class="site">Code Agent Runtime — research/engineering scaffold. Built milestone by milestone.</footer>
+</body>
+</html>

@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Security — Code Agent Runtime</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="index.html">Code Agent Runtime</a>
+  <div class="tagline">A local-first runtime for running, tracing, sandboxing, replaying, and evaluating coding agents.</div>
+  <nav class="site">
+    <a href="index.html">Home</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="task-format.html">Task format</a>
+    <a href="sandboxing.html">Sandboxing</a>
+    <a href="tracing-replay.html">Tracing &amp; replay</a>
+    <a href="evals.html">Evals</a>
+    <a href="results.html">Results</a>
+    <a href="security.html" class="active">Security</a>
+    <a href="limitations.html">Limitations</a>
+    <a href="roadmap.html">Roadmap</a>
+  </nav>
+</header>
+<main>
+  <h1>Security model</h1>
+  <p class="lede">Honest framing: this is not a production-grade sandbox.</p>
+  <p><span class="status scaffold">status: threat model documented; controls planned (Milestone 7)</span></p>
+
+  <div class="callout">A capable adversary, or an agent running with broad host permissions,
+  can escape the controls described here. The goal is blast-radius reduction and
+  observability for semi-trusted, deterministic agents on a developer machine.</div>
+
+  <h2>Brief explanation</h2>
+  <p>The security model protects developer secrets, files outside the workspace, the network,
+  and the host from destructive commands — against bugs and over-eager agents, not against
+  deliberately malicious native code.</p>
+
+  <h2>Deeper technical explanation</h2>
+  <h3>In scope</h3>
+  <ul>
+    <li>An agent that reads or writes outside its workspace.</li>
+    <li>An agent that runs a dangerous shell command by mistake.</li>
+    <li>Accidental secret capture into traces or reports.</li>
+  </ul>
+  <h3>Out of scope</h3>
+  <ul>
+    <li>A deliberately malicious agent with native code execution and kernel exploits.</li>
+    <li>Side-channel, timing, or hardware attacks.</li>
+    <li>Multi-tenant isolation guarantees.</li>
+  </ul>
+
+  <h2>Current implementation status</h2>
+  <p>Runtime containment is not implemented yet. Today's guards are repo-level
+  <code>.gitignore</code> and <code>.claude/settings.json</code> deny rules plus the
+  no-secrets-committed operating principle. Repo hygiene scanning lands in Milestone 1.</p>
+
+  <h2>Relevant files</h2>
+  <ul class="files">
+    <li>docs/SECURITY_MODEL.md</li>
+    <li>.gitignore, .claude/settings.json</li>
+    <li>src/code_agent_runtime/sandbox/ (planned)</li>
+  </ul>
+
+  <h2>Current test/result status</h2>
+  <p>No security tests yet. Validation will assert blocked-vs-allowed behavior on unsafe demos.</p>
+
+  <h2>Open questions / limitations</h2>
+  <ul>
+    <li>How much isolation is achievable without containers or root?</li>
+    <li>What is the right default network posture?</li>
+  </ul>
+</main>
+<footer class="site">Code Agent Runtime — research/engineering scaffold. Built milestone by milestone.</footer>
+</body>
+</html>

@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Evals — Code Agent Runtime</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="index.html">Code Agent Runtime</a>
+  <div class="tagline">A local-first runtime for running, tracing, sandboxing, replaying, and evaluating coding agents.</div>
+  <nav class="site">
+    <a href="index.html">Home</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="task-format.html">Task format</a>
+    <a href="sandboxing.html">Sandboxing</a>
+    <a href="tracing-replay.html">Tracing &amp; replay</a>
+    <a href="evals.html" class="active">Evals</a>
+    <a href="results.html">Results</a>
+    <a href="security.html">Security</a>
+    <a href="limitations.html">Limitations</a>
+    <a href="roadmap.html">Roadmap</a>
+  </nav>
+</header>
+<main>
+  <h1>Evals</h1>
+  <p class="lede">Reproducible, inspectable, honest measurement — not a leaderboard.</p>
+  <p><span class="status scaffold">status: planned (Milestones 8–9, 12) — not implemented yet</span></p>
+
+  <h2>Brief explanation</h2>
+  <p>An eval runs one or more agents over a suite of tasks and scores each run. Deterministic
+  mock and scripted baselines establish a floor and exercise the harness without any model.</p>
+
+  <h2>Deeper technical explanation</h2>
+  <p>Planned signals per run:</p>
+  <table>
+    <tr><th>Signal</th><th>Source</th></tr>
+    <tr><td>Task success (pass/fail)</td><td>test command / file checks</td></tr>
+    <tr><td>Diff conformance</td><td>git diff vs. constraints</td></tr>
+    <tr><td>Tool-call count, command count</td><td>trace</td></tr>
+    <tr><td>Runtime</td><td>wall-clock, bounded by timeout</td></tr>
+    <tr><td>Failure reason</td><td>trace + scorer</td></tr>
+  </table>
+  <p>Regression comparison classifies tasks as improved, regressed, unchanged, or flaky
+  across two result files, with a rerun mode for flakiness analysis.</p>
+
+  <h2>Current implementation status</h2>
+  <p>Not implemented. Scoring and reports land in Milestone 8; regression/flakiness in
+  Milestone 9; the reproducible case study in Milestone 12.</p>
+
+  <h2>Relevant files</h2>
+  <ul class="files">
+    <li>src/code_agent_runtime/scoring/ (planned)</li>
+    <li>docs/METHODOLOGY.md</li>
+    <li>results/ (created when evals run)</li>
+  </ul>
+
+  <h2>Current test/result status</h2>
+  <p>No eval tests yet. Validation will run a small suite with mock/scripted agents and
+  generate a Markdown/HTML report.</p>
+
+  <h2>Open questions / limitations</h2>
+  <ul>
+    <li>Small task counts make results illustrative, not statistically powerful.</li>
+    <li>A passing test command does not guarantee a correct change.</li>
+  </ul>
+</main>
+<footer class="site">Code Agent Runtime — research/engineering scaffold. Built milestone by milestone.</footer>
+</body>
+</html>

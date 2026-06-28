@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Task format — Code Agent Runtime</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="index.html">Code Agent Runtime</a>
+  <div class="tagline">A local-first runtime for running, tracing, sandboxing, replaying, and evaluating coding agents.</div>
+  <nav class="site">
+    <a href="index.html">Home</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="task-format.html" class="active">Task format</a>
+    <a href="sandboxing.html">Sandboxing</a>
+    <a href="tracing-replay.html">Tracing &amp; replay</a>
+    <a href="evals.html">Evals</a>
+    <a href="results.html">Results</a>
+    <a href="security.html">Security</a>
+    <a href="limitations.html">Limitations</a>
+    <a href="roadmap.html">Roadmap</a>
+  </nav>
+</header>
+<main>
+  <h1>Task format</h1>
+  <p class="lede">Versioned, declarative task definitions that pin everything a run needs.</p>
+  <p><span class="status scaffold">status: planned (Milestone 2) — not implemented yet</span></p>
+
+  <h2>Brief explanation</h2>
+  <p>A task is a small, version-controlled file describing one unit of work: what to do,
+  which fixture repo to do it in, what tools are allowed, and how success is measured.</p>
+
+  <h2>Deeper technical explanation</h2>
+  <p>Planned task fields:</p>
+  <table>
+    <tr><th>Field</th><th>Meaning</th></tr>
+    <tr><td>id, title, version</td><td>Stable identity and schema version.</td></tr>
+    <tr><td>prompt</td><td>Instruction given to the agent.</td></tr>
+    <tr><td>fixture path</td><td>Repo snapshot the workspace is built from.</td></tr>
+    <tr><td>allowed tools</td><td>Subset of the tool registry the agent may use.</td></tr>
+    <tr><td>timeout, resource limits</td><td>Bounds on runtime and output.</td></tr>
+    <tr><td>scoring method, test command</td><td>How pass/fail is determined.</td></tr>
+    <tr><td>metadata</td><td>Tags such as bugfix, refactor, CLI change, security.</td></tr>
+  </table>
+  <p>Valid tasks load cleanly; invalid tasks must produce readable errors. The CLI will be
+  able to list and inspect tasks.</p>
+
+  <h2>Current implementation status</h2>
+  <p>Not implemented. The schema and example tasks (bugfix, CLI change, unsafe-command
+  demo) arrive in Milestone 2.</p>
+
+  <h2>Relevant files</h2>
+  <ul class="files">
+    <li>tasks/ (created in Milestone 2)</li>
+    <li>src/code_agent_runtime/tasks/ (planned)</li>
+    <li>docs/PLAN.md</li>
+  </ul>
+
+  <h2>Current test/result status</h2>
+  <p>No task-format tests yet. Validation will cover valid/invalid loading and CLI listing.</p>
+
+  <h2>Open questions / limitations</h2>
+  <ul>
+    <li>YAML vs. JSON as the canonical task format.</li>
+    <li>How to express diff/scope constraints declaratively.</li>
+  </ul>
+</main>
+<footer class="site">Code Agent Runtime — research/engineering scaffold. Built milestone by milestone.</footer>
+</body>
+</html>

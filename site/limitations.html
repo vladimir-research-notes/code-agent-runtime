@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Limitations — Code Agent Runtime</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="index.html">Code Agent Runtime</a>
+  <div class="tagline">A local-first runtime for running, tracing, sandboxing, replaying, and evaluating coding agents.</div>
+  <nav class="site">
+    <a href="index.html">Home</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="task-format.html">Task format</a>
+    <a href="sandboxing.html">Sandboxing</a>
+    <a href="tracing-replay.html">Tracing &amp; replay</a>
+    <a href="evals.html">Evals</a>
+    <a href="results.html">Results</a>
+    <a href="security.html">Security</a>
+    <a href="limitations.html" class="active">Limitations</a>
+    <a href="roadmap.html">Roadmap</a>
+  </nav>
+</header>
+<main>
+  <h1>Limitations &amp; non-goals</h1>
+  <p class="lede">What is true today, and what this project deliberately is not.</p>
+  <p><span class="status scaffold">status: current as of Milestone 0</span></p>
+
+  <h2>Brief explanation</h2>
+  <p>At Milestone 0 the repository is a scaffold: package, CLI, docs, website, packaging,
+  and a smoke test. The agent runtime, tools, sandbox, tracing, and scoring are not built yet.</p>
+
+  <h2>Deeper technical explanation</h2>
+  <h3>Known limitations</h3>
+  <ul>
+    <li><strong>No sandbox.</strong> No enforced isolation — see <a href="security.html">Security</a>.</li>
+    <li><strong>No evaluations.</strong> <a href="results.html">Results</a> is intentionally empty.</li>
+    <li><strong>No model integration.</strong> No LLM calls or Claude adapters yet.</li>
+    <li><strong>Environment assumption.</strong> Tests assume <code>python3</code> 3.10+ with
+      <code>pytest</code>; the <code>src/</code> layout plus <code>conftest.py</code> shim runs
+      the suite without an install.</li>
+  </ul>
+  <h3>Non-goals</h3>
+  <p>Not a production-secure sandbox; not a replacement for any commercial coding agent; not a
+  claim of beating commercial agents; not a benchmark leaderboard; not a large-scale paid-API
+  evaluation; not a web product; not a tutorial.</p>
+
+  <h2>Current implementation status</h2>
+  <p>This page and <code>docs/LIMITATIONS.md</code> are updated at every milestone.</p>
+
+  <h2>Relevant files</h2>
+  <ul class="files">
+    <li>docs/LIMITATIONS.md</li>
+    <li>docs/SECURITY_MODEL.md</li>
+    <li>docs/PLAN.md</li>
+  </ul>
+
+  <h2>Current test/result status</h2>
+  <p>CPU-only scaffold tests pass; nothing else is claimed.</p>
+
+  <h2>Open questions / limitations</h2>
+  <p>Each milestone narrows these as real subsystems land and are tested.</p>
+</main>
+<footer class="site">Code Agent Runtime — research/engineering scaffold. Built milestone by milestone.</footer>
+</body>
+</html>

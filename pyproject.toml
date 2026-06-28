@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "code-agent-runtime"
+version = "0.0.0"
+description = "Local-first runtime for running, tracing, sandboxing, replaying, and evaluating coding agents under controlled conditions."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Code Agent Runtime contributors" }]
+keywords = [
+  "coding-agents",
+  "evaluation",
+  "sandbox",
+  "tracing",
+  "replay",
+  "reproducibility",
+]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Software Development :: Testing",
+]
+# Core runtime is intentionally dependency-free so default tests stay CPU-only
+# and free. Optional adapters (e.g. a cost-guarded Claude API agent) will add
+# their own extras in later milestones.
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[project.urls]
+Documentation = "https://github.com/example/code-agent-runtime"
+Source = "https://github.com/example/code-agent-runtime"
+
+[project.scripts]
+code-agent-runtime = "code_agent_runtime.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"

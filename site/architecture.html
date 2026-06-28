@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Architecture — Code Agent Runtime</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="index.html">Code Agent Runtime</a>
+  <div class="tagline">A local-first runtime for running, tracing, sandboxing, replaying, and evaluating coding agents.</div>
+  <nav class="site">
+    <a href="index.html">Home</a>
+    <a href="architecture.html" class="active">Architecture</a>
+    <a href="task-format.html">Task format</a>
+    <a href="sandboxing.html">Sandboxing</a>
+    <a href="tracing-replay.html">Tracing &amp; replay</a>
+    <a href="evals.html">Evals</a>
+    <a href="results.html">Results</a>
+    <a href="security.html">Security</a>
+    <a href="limitations.html">Limitations</a>
+    <a href="roadmap.html">Roadmap</a>
+  </nav>
+</header>
+<main>
+  <h1>Architecture</h1>
+  <p class="lede">How a versioned task and an agent become a scored, replayable trace.</p>
+  <p><span class="status scaffold">status: Milestone 0 — design target; only the scaffold exists</span></p>
+
+  <h2>Brief explanation</h2>
+  <p>The runtime is an explicit pipeline. Each stage has a clear input and output so that
+  every step can be inspected, traced, and reproduced.</p>
+
+  <h2>Deeper technical explanation</h2>
+  <pre><code>task -&gt; workspace -&gt; agent loop -&gt; tools -&gt; tests -&gt; scoring -&gt; report
+                         \__ trace recorder __/</code></pre>
+  <table>
+    <tr><th>Component</th><th>Package (target)</th><th>Responsibility</th></tr>
+    <tr><td>Tasks</td><td>tasks/</td><td>Load and validate versioned task definitions.</td></tr>
+    <tr><td>Runtime</td><td>runtime/</td><td>Agent loop, state machine, context, tool dispatch.</td></tr>
+    <tr><td>Agents</td><td>agents/</td><td>Mock, scripted, human, optional LLM agents.</td></tr>
+    <tr><td>Tools</td><td>tools/</td><td>Structured file, patch, shell, git, test, search tools.</td></tr>
+    <tr><td>Sandbox</td><td>sandbox/</td><td>Permission policy, secret scanning, runners.</td></tr>
+    <tr><td>Traces</td><td>traces/</td><td>Trace schema, recorder, replay, summarization.</td></tr>
+    <tr><td>Scoring</td><td>scoring/</td><td>Test/diff/file scorers, regression comparison.</td></tr>
+    <tr><td>Reports</td><td>reports/</td><td>Markdown and HTML result reports.</td></tr>
+  </table>
+  <p>Design principles: deterministic-first, everything-is-traced, separation of policy and
+  mechanism, and no hidden cost.</p>
+
+  <h2>Current implementation status</h2>
+  <ul>
+    <li>Package scaffold and CLI exist.</li>
+    <li>All pipeline subsystems are pending later milestones.</li>
+  </ul>
+
+  <h2>Relevant files</h2>
+  <ul class="files">
+    <li>docs/ARCHITECTURE.md</li>
+    <li>src/code_agent_runtime/cli.py</li>
+    <li>docs/PLAN.md</li>
+  </ul>
+
+  <h2>Current test/result status</h2>
+  <p>Scaffold-layout tests assert the documented skeleton exists. No runtime behavior to test yet.</p>
+
+  <h2>Open questions / limitations</h2>
+  <ul>
+    <li>What is the minimal trace schema that still supports faithful replay?</li>
+    <li>Where should the policy/mechanism boundary sit for shell execution?</li>
+  </ul>
+</main>
+<footer class="site">Code Agent Runtime — research/engineering scaffold. Built milestone by milestone.</footer>
+</body>
+</html>

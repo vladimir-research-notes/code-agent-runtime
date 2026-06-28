@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Roadmap — Code Agent Runtime</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="index.html">Code Agent Runtime</a>
+  <div class="tagline">A local-first runtime for running, tracing, sandboxing, replaying, and evaluating coding agents.</div>
+  <nav class="site">
+    <a href="index.html">Home</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="task-format.html">Task format</a>
+    <a href="sandboxing.html">Sandboxing</a>
+    <a href="tracing-replay.html">Tracing &amp; replay</a>
+    <a href="evals.html">Evals</a>
+    <a href="results.html">Results</a>
+    <a href="security.html">Security</a>
+    <a href="limitations.html">Limitations</a>
+    <a href="roadmap.html" class="active">Roadmap</a>
+  </nav>
+</header>
+<main>
+  <h1>Roadmap</h1>
+  <p class="lede">Built milestone by milestone; committed locally after each coherent step.</p>
+  <p><span class="status scaffold">status: Milestone 0 complete</span></p>
+
+  <h2>Brief explanation</h2>
+  <p>The platform is built in small, verifiable milestones. Each milestone runs its tests,
+  updates this website, and records milestone/commit/review notes under <code>docs/</code>.</p>
+
+  <h2>Deeper technical explanation</h2>
+  <table>
+    <tr><th>#</th><th>Milestone</th><th>Status</th></tr>
+    <tr><td>0</td><td>Scaffold and project foundations</td><td>done</td></tr>
+    <tr><td>1</td><td>Environment and repository hygiene</td><td>planned</td></tr>
+    <tr><td>2</td><td>Versioned task format</td><td>planned</td></tr>
+    <tr><td>3</td><td>Tool registry and core tools</td><td>planned</td></tr>
+    <tr><td>4</td><td>Local runtime state machine</td><td>planned</td></tr>
+    <tr><td>5</td><td>Trace recorder</td><td>planned</td></tr>
+    <tr><td>6</td><td>Replay and debugging tools</td><td>planned</td></tr>
+    <tr><td>7</td><td>Permission policies and sandbox controls</td><td>planned</td></tr>
+    <tr><td>8</td><td>Scoring and evaluation reports</td><td>planned</td></tr>
+    <tr><td>9</td><td>Regression comparison and flakiness analysis</td><td>planned</td></tr>
+    <tr><td>10</td><td>Optional cost-controlled LLM adapter</td><td>planned</td></tr>
+    <tr><td>11</td><td>Claude Code trace importer</td><td>planned</td></tr>
+    <tr><td>12</td><td>Reproducible case study</td><td>planned</td></tr>
+    <tr><td>13</td><td>Multi-page website polish</td><td>planned</td></tr>
+    <tr><td>14</td><td>Final hardening</td><td>planned</td></tr>
+  </table>
+
+  <h2>Current implementation status</h2>
+  <p>Milestone 0 is complete: package scaffold, CLI, docs skeleton, this website, packaging,
+  and a CPU-only smoke test.</p>
+
+  <h2>Relevant files</h2>
+  <ul class="files">
+    <li>docs/PLAN.md</li>
+    <li>docs/milestones/</li>
+    <li>docs/commits/, docs/review_notes/</li>
+  </ul>
+
+  <h2>Current test/result status</h2>
+  <p>Scaffold tests pass. Next: Milestone 1 — Environment and repository hygiene.</p>
+
+  <h2>Open questions / limitations</h2>
+  <p>The plan may evolve as real subsystems land; this table is updated at every milestone.</p>
+</main>
+<footer class="site">Code Agent Runtime — research/engineering scaffold. Built milestone by milestone.</footer>
+</body>
+</html>
