@@ -1,24 +1,32 @@
 """Command-line interface for Code Agent Runtime.
 
 The CLI is intentionally minimal at this stage. It exposes version/status
-commands plus the Milestone 1 operational checks (``env-check``, ``hygiene``).
-Task running, tracing, replay, scoring, and reporting subcommands are added in
-later milestones (see ``docs/PLAN.md``).
+commands, the Milestone 1 operational checks (``env-check``, ``hygiene``), and
+the Milestone 2 task tools (``tasks list`` / ``tasks show``). Task running,
+tracing, replay, scoring, and reporting subcommands are added in later
+milestones (see ``docs/PLAN.md``).
 """
 
 from __future__ import annotations
 
 import argparse
+import json
+import sys
+import textwrap
 from collections.abc import Sequence
 
 from . import PROJECT_NAME, PROJECT_SUMMARY, __version__
 from . import environment as _environment
 from . import hygiene as _hygiene
+from . import tasks as _tasks
 
 # The milestone the runtime currently implements. Kept here so ``info`` can
 # report honest project status without scanning the filesystem.
-CURRENT_MILESTONE = "Milestone 1 — Environment and repository hygiene"
-NEXT_MILESTONE = "Milestone 2 — Versioned task format"
+CURRENT_MILESTONE = "Milestone 2 — Versioned task format"
+NEXT_MILESTONE = "Milestone 3 — Tool registry and core tools"
+
+#: Default directory the ``tasks`` subcommands scan.
+DEFAULT_TASKS_DIR = "tasks"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -80,7 +88,43 @@ def build_parser() -> argparse.ArgumentParser:
     p_hyg.add_argument("--json", action="store_true", help="Emit the report as JSON.")
     p_hyg.set_defaults(func=_cmd_hygiene)
 
+    _add_tasks_parser(subparsers)
+
     return parser
+
+
+def _add_tasks_parser(subparsers: argparse._SubParsersAction) -> None:
+    """Add the ``tasks`` command group (``list`` / ``show``)."""
+    p_tasks = subparsers.add_parser(
+        "tasks",
+        help="List and inspect versioned task definitions.",
+    )
+    # Invoking `tasks` with no action prints this parser's help.
+    p_tasks.set_defaults(func=_make_help_printer(p_tasks))
+    actions = p_tasks.add_subparsers(dest="tasks_command", metavar="<action>")
+
+    p_list = actions.add_parser("list", help="List discovered tasks.")
+    p_list.add_argument(
+        "--dir", default=DEFAULT_TASKS_DIR, help="Directory to scan (default: tasks/)."
+    )
+    p_list.add_argument("--json", action="store_true", help="Emit the listing as JSON.")
+    p_list.set_defaults(func=_cmd_tasks_list)
+
+    p_show = actions.add_parser("show", help="Show one task by id or file path.")
+    p_show.add_argument("ident", help="Task id (e.g. bugfix/sum-range-off-by-one) or path.")
+    p_show.add_argument(
+        "--dir", default=DEFAULT_TASKS_DIR, help="Directory to search by id (default: tasks/)."
+    )
+    p_show.add_argument("--json", action="store_true", help="Emit the task as JSON.")
+    p_show.set_defaults(func=_cmd_tasks_show)
+
+
+def _make_help_printer(parser: argparse.ArgumentParser):
+    def _printer(_args: argparse.Namespace) -> int:
+        parser.print_help()
+        return 0
+
+    return _printer
 
 
 def _cmd_version(_args: argparse.Namespace) -> int:
@@ -112,6 +156,98 @@ def _cmd_hygiene(args: argparse.Namespace) -> int:
     if args.json:
         forwarded.append("--json")
     return _hygiene.main(forwarded)
+
+
+def _task_summary(task: _tasks.Task) -> dict:
+    """Compact, JSON-friendly summary used by ``tasks list``."""
+    return {
+        "id": task.id,
+        "title": task.title,
+        "scoring_method": task.scoring_method,
+        "allowed_tools": list(task.allowed_tools),
+        "fixture": task.fixture,
+        "fixture_exists": _tasks.fixture_exists(task),
+        "source_path": task.source_path,
+    }
+
+
+def _cmd_tasks_list(args: argparse.Namespace) -> int:
+    files = _tasks.discover_task_files(args.dir)
+    loaded: list[_tasks.Task] = []
+    errors: list[tuple[str, _tasks.TaskValidationError]] = []
+    for path in files:
+        try:
+            # Validate the schema but do not hard-fail on a missing fixture; the
+            # listing reports fixture presence as a column instead.
+            loaded.append(_tasks.load_task(path, resolve_fixture=False))
+        except _tasks.TaskValidationError as exc:
+            errors.append((str(path), exc))
+
+    if args.json:
+        payload = {
+            "dir": str(args.dir),
+            "count": len(loaded),
+            "tasks": [_task_summary(t) for t in loaded],
+            "errors": [{"path": p, "problems": e.problems} for p, e in errors],
+        }
+        print(json.dumps(payload, indent=2))
+        return 1 if errors else 0
+
+    if not files:
+        print(f"No task files (*.task.json/.yaml) found under {args.dir}/.")
+        return 0
+    print(f"Tasks under {args.dir}/ ({len(loaded)} valid, {len(errors)} invalid)\n")
+    width = max((len(t.id) for t in loaded), default=0)
+    for task in loaded:
+        fixture_state = "ok" if _tasks.fixture_exists(task) else "MISSING"
+        tools = f"{len(task.allowed_tools)} tool(s)"
+        print(
+            f"  {task.id:<{width}}  {task.scoring_method:<14} {tools:<10} "
+            f"fixture: {fixture_state:<7} {task.source_path}"
+        )
+    for path, exc in errors:
+        print(f"\n  [invalid] {path}")
+        for problem in exc.problems:
+            print(f"            - {problem}")
+    return 1 if errors else 0
+
+
+def _cmd_tasks_show(args: argparse.Namespace) -> int:
+    try:
+        task = _tasks.find_task(args.dir, args.ident, resolve_fixture=False)
+    except _tasks.TaskValidationError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps(task.to_dict(), indent=2))
+    else:
+        print(_format_task(task))
+    return 0
+
+
+def _format_task(task: _tasks.Task) -> str:
+    resolved = _tasks.resolve_fixture(task)
+    exists = "exists" if resolved.exists() else "MISSING"
+    limits = task.resource_limits.to_dict()
+    limits_str = ", ".join(f"{k}={v}" for k, v in limits.items() if v is not None) or "(defaults)"
+    meta_str = ", ".join(f"{k}={v}" for k, v in task.metadata.items()) or "(none)"
+    tools_str = ", ".join(task.allowed_tools) or "(none)"
+    lines = [
+        f"Task: {task.id}",
+        f"  title         : {task.title}",
+        f"  version       : {task.version}",
+        f"  scoring       : {task.scoring_method}",
+        f"  test command  : {task.test_command_str or '(none)'}",
+        f"  fixture       : {task.fixture} -> {resolved} ({exists})",
+        f"  allowed tools : {tools_str}",
+        f"  timeout       : {task.timeout_seconds}s",
+        f"  limits        : {limits_str}",
+        f"  metadata      : {meta_str}",
+        f"  source        : {task.source_path}",
+        "  prompt        :",
+    ]
+    lines += [f"    {line}" for line in textwrap.wrap(task.prompt, width=80)]
+    return "\n".join(lines)
 
 
 def main(argv: Sequence[str] | None = None) -> int:

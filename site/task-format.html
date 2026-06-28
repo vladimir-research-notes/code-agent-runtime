@@ -26,45 +26,73 @@
 <main>
   <h1>Task format</h1>
   <p class="lede">Versioned, declarative task definitions that pin everything a run needs.</p>
-  <p><span class="status scaffold">status: planned (Milestone 2) — not implemented yet</span></p>
+  <p><span class="status done">status: implemented (Milestone 2)</span></p>
 
   <h2>Brief explanation</h2>
   <p>A task is a small, version-controlled file describing one unit of work: what to do,
-  which fixture repo to do it in, what tools are allowed, and how success is measured.</p>
+  which fixture repo to do it in, what tools are allowed, under what limits, and how success
+  is measured. Tasks are <strong>data only</strong> — loading one runs no agent and executes
+  no command. The runtime that consumes them is built in later milestones.</p>
 
   <h2>Deeper technical explanation</h2>
-  <p>Planned task fields:</p>
+  <p>The canonical format is <strong>JSON</strong> (<code>*.task.json</code>); YAML
+  (<code>*.task.yaml</code>/<code>.yml</code>) is supported optionally and parsed only when
+  PyYAML is installed, so the core package and default tests stay dependency-free. Fields:</p>
   <table>
-    <tr><th>Field</th><th>Meaning</th></tr>
-    <tr><td>id, title, version</td><td>Stable identity and schema version.</td></tr>
-    <tr><td>prompt</td><td>Instruction given to the agent.</td></tr>
-    <tr><td>fixture path</td><td>Repo snapshot the workspace is built from.</td></tr>
-    <tr><td>allowed tools</td><td>Subset of the tool registry the agent may use.</td></tr>
-    <tr><td>timeout, resource limits</td><td>Bounds on runtime and output.</td></tr>
-    <tr><td>scoring method, test command</td><td>How pass/fail is determined.</td></tr>
-    <tr><td>metadata</td><td>Tags such as bugfix, refactor, CLI change, security.</td></tr>
+    <tr><th>Field</th><th>Required</th><th>Meaning</th></tr>
+    <tr><td>version</td><td>yes</td><td>Schema version (currently 1).</td></tr>
+    <tr><td>id, title</td><td>yes</td><td>Stable identity (lowercase, <code>-_./</code> separators) and name.</td></tr>
+    <tr><td>prompt</td><td>yes</td><td>Instruction given to the agent.</td></tr>
+    <tr><td>fixture</td><td>yes</td><td>Workspace snapshot path, relative to the task file.</td></tr>
+    <tr><td>scoring_method</td><td>yes</td><td>One of test_command, expected_files, diff_constraint, custom, none.</td></tr>
+    <tr><td>allowed_tools</td><td>no</td><td>Subset of the tool registry the agent may use.</td></tr>
+    <tr><td>timeout_seconds</td><td>no</td><td>Wall-clock budget (default 300).</td></tr>
+    <tr><td>test_command</td><td>cond.</td><td>Required when scoring by command; shell string or argv list.</td></tr>
+    <tr><td>resource_limits</td><td>no</td><td>cpu_seconds, memory_mb, max_output_bytes, network.</td></tr>
+    <tr><td>metadata</td><td>no</td><td>Free-form tags (category, language, difficulty, ...).</td></tr>
   </table>
-  <p>Valid tasks load cleanly; invalid tasks must produce readable errors. The CLI will be
-  able to list and inspect tasks.</p>
+  <p>Valid tasks load cleanly. Invalid tasks raise a single error that lists <em>every</em>
+  problem (unknown/missing fields, bad types, unknown tools, unrecognised scoring method,
+  unsupported version, bad limits) with the source file named — so an author fixes
+  everything in one pass. <code>allowed_tools</code> and <code>scoring_method</code> are
+  checked against closed vocabularies, turning typos into authoring-time errors.</p>
 
   <h2>Current implementation status</h2>
-  <p>Not implemented. The schema and example tasks (bugfix, CLI change, unsafe-command
-  demo) arrive in Milestone 2.</p>
+  <p>Implemented. The <code>tasks/</code> package provides the schema, loader (JSON + optional
+  YAML), and fixture resolution. Three example tasks ship with real fixtures, and the CLI can
+  list and inspect them:</p>
+  <pre><code>code-agent-runtime tasks list --dir tasks
+code-agent-runtime tasks show bugfix/sum-range-off-by-one --dir tasks</code></pre>
+  <table>
+    <tr><th>Task</th><th>Kind</th><th>Fixture</th></tr>
+    <tr><td>bugfix/sum-range-off-by-one</td><td>bug fix</td><td>examples/tiny_python_bug</td></tr>
+    <tr><td>cli/add-shout-flag</td><td>CLI behaviour change</td><td>examples/tiny_cli_project</td></tr>
+    <tr><td>security/unsafe-command-demo</td><td>sandbox-policy probe</td><td>examples/unsafe_command_demo</td></tr>
+  </table>
 
   <h2>Relevant files</h2>
   <ul class="files">
-    <li>tasks/ (created in Milestone 2)</li>
-    <li>src/code_agent_runtime/tasks/ (planned)</li>
-    <li>docs/PLAN.md</li>
+    <li>src/code_agent_runtime/tasks/schema.py, loader.py, fixtures.py</li>
+    <li>tasks/ (example task definitions), tasks/README.md</li>
+    <li>examples/ (tiny_python_bug, tiny_cli_project, unsafe_command_demo)</li>
+    <li>src/code_agent_runtime/cli.py (tasks list / show)</li>
+    <li>tests/test_tasks.py</li>
   </ul>
 
   <h2>Current test/result status</h2>
-  <p>No task-format tests yet. Validation will cover valid/invalid loading and CLI listing.</p>
+  <p>Covered by <code>tests/test_tasks.py</code> (CPU-only): schema validation for valid and
+  invalid documents, JSON and optional-YAML loading, fixture resolution, discovery over the
+  real <code>tasks/</code> tree, and the <code>tasks list</code>/<code>show</code> CLI. The full
+  suite passes with <code>python3 -m pytest -q</code>.</p>
 
   <h2>Open questions / limitations</h2>
   <ul>
-    <li>YAML vs. JSON as the canonical task format.</li>
-    <li>How to express diff/scope constraints declaratively.</li>
+    <li>How to express diff/scope constraints declaratively (the <code>diff_constraint</code>
+      scoring method is named but not yet implemented; scoring lands in Milestone 8).</li>
+    <li><code>allowed_tools</code> is validated against a hard-coded vocabulary that must stay
+      in sync with the Milestone 3 tool registry.</li>
+    <li>Fixture paths are resolved relative to the task file; repo-root-relative resolution is
+      an alternative not yet chosen.</li>
   </ul>
 </main>
 <footer class="site">Code Agent Runtime — research/engineering scaffold. Built milestone by milestone.</footer>

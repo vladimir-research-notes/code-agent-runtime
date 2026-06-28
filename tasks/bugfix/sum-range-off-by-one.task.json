@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "id": "bugfix/sum-range-off-by-one",
+  "title": "Fix off-by-one in sum_to()",
+  "prompt": "The function sum_to(n) in summation.py should return the sum of the integers from 1 to n inclusive, but it currently excludes n. Fix the off-by-one error so the tests in test_summation.py pass. Change only summation.py.",
+  "fixture": "../../examples/tiny_python_bug",
+  "allowed_tools": ["read_file", "search_repo", "apply_patch", "write_file", "run_tests"],
+  "timeout_seconds": 120,
+  "scoring_method": "test_command",
+  "test_command": "python3 -m pytest -q",
+  "resource_limits": {
+    "cpu_seconds": 30,
+    "memory_mb": 512,
+    "network": false
+  },
+  "metadata": {
+    "category": "bugfix",
+    "language": "python",
+    "difficulty": "intro"
+  }
+}

@@ -93,6 +93,7 @@ a { color: var(--accent); }
 }
 
 .status.scaffold { color: var(--warn); }
+.status.done { color: var(--ok); }
 
 code, pre {
   font-family: var(--mono);

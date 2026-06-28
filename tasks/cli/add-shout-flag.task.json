@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "id": "cli/add-shout-flag",
+  "title": "Add a --shout flag to the greet CLI",
+  "prompt": "Add an optional --shout flag to greet.py. When --shout is given, the greeting is printed in uppercase (for example 'HELLO, ADA!'); without it, behaviour is unchanged. Keep the existing tests in test_greet.py passing and do not change the default output.",
+  "fixture": "../../examples/tiny_cli_project",
+  "allowed_tools": ["read_file", "search_repo", "apply_patch", "write_file", "run_shell", "run_tests"],
+  "timeout_seconds": 180,
+  "scoring_method": "test_command",
+  "test_command": ["python3", "-m", "pytest", "-q"],
+  "resource_limits": {
+    "cpu_seconds": 30,
+    "memory_mb": 512,
+    "network": false
+  },
+  "metadata": {
+    "category": "cli_change",
+    "language": "python",
+    "difficulty": "intro"
+  }
+}

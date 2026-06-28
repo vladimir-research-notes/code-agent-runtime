@@ -53,12 +53,17 @@ task ──▶ workspace ──▶ agent loop ──▶ tools ──▶ tests �
 ## Current implementation status
 
 - [x] Python package scaffold (`src/code_agent_runtime/`) and CLI.
-- [ ] Task format, tool registry, runtime loop, tracing, sandbox, scoring,
-      reports, adapters — pending later milestones.
+- [x] Environment check and repository hygiene scanner (Milestone 1).
+- [x] Versioned task format — schema, loader (JSON + optional YAML), fixture
+      resolution, example tasks, and `tasks list`/`show` CLI (Milestone 2).
+- [ ] Tool registry, runtime loop, tracing, sandbox, scoring, reports,
+      adapters — pending later milestones.
 
 ## Relevant files
 
 - `src/code_agent_runtime/__init__.py`, `src/code_agent_runtime/cli.py`
+- `src/code_agent_runtime/tasks/` (schema, loader, fixtures)
+- `tasks/`, `examples/` (example task definitions and fixtures)
 - `docs/PLAN.md` (target layout and milestones)
 
 ## Open questions
