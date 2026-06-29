@@ -29,7 +29,7 @@
   <em>around</em> coding agents: task setup, tools, permissions, execution, tracing, replay,
   scoring, regression comparison, and reports.</p>
 
-  <p><span class="status done">status: Milestone 11 — Claude Code trace importer</span></p>
+  <p><span class="status done">status: Milestone 12 — Reproducible case study</span></p>
 
   <h2>Brief explanation</h2>
   <p>Modern coding agents need a runtime, not just a prompt. This project builds the
@@ -88,7 +88,12 @@
       <em>verify</em> mode by re-running the task's real test command or in <em>trust</em> mode
       against the source's declared evidence, via the <code>import</code> CLI —
       <strong>done</strong> (Milestone 11).</li>
-    <li>Reproducible case study and later milestones — <em>pending</em>.</li>
+    <li>Reproducible case study — 13 small but genuine tasks across all five categories
+      (bugfix, refactor, cli_change, tests_must_pass, security), run by the mock and scripted
+      baselines plus the sandbox probes, emitting a result CSV, Markdown/HTML reports, and one
+      inspectable trace per run, via <code>scripts/07_case_study.py</code> and a new
+      <code>suite_to_csv</code> exporter — <strong>done</strong> (Milestone 12).</li>
+    <li>Website polish and final hardening — <em>pending</em>.</li>
   </ul>
 
   <h2>Relevant files</h2>

@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "id": "cli/add-reverse-flag",
+  "title": "Add a --reverse flag to the echo CLI",
+  "prompt": "Add an optional --reverse flag to echo.py. When given, the CLI should print the text reversed; add a matching reverse parameter to render(text, reverse=False). The default behaviour must stay unchanged. Make the tests in test_echo.py (which cover both default and reversed output) pass. Change only echo.py.",
+  "fixture": "../../examples/cli_echo",
+  "allowed_tools": ["read_file", "search_repo", "apply_patch", "write_file", "run_tests"],
+  "timeout_seconds": 120,
+  "scoring_method": "test_command",
+  "test_command": "python3 -m pytest -q",
+  "resource_limits": {
+    "cpu_seconds": 30,
+    "memory_mb": 512,
+    "network": false
+  },
+  "metadata": {
+    "category": "cli_change",
+    "language": "python",
+    "difficulty": "intro",
+    "case_study": true
+  }
+}

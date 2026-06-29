@@ -26,13 +26,15 @@
 <main>
   <h1>Evals</h1>
   <p class="lede">Reproducible, inspectable, honest measurement — not a leaderboard.</p>
-  <p><span class="status done">status: implemented (Milestones 8–11) — scoring, suite runner, reports, regression &amp; flakiness, optional LLM adapter, Claude Code trace importer</span></p>
+  <p><span class="status done">status: implemented (Milestones 8–12) — scoring, suite runner, Markdown/HTML/CSV reports, regression &amp; flakiness, optional LLM adapter, Claude Code trace importer, reproducible case study</span></p>
 
   <h2>Brief explanation</h2>
   <p>An eval runs one or more agents over a suite of tasks and <strong>scores</strong> each
   run. Deterministic mock and scripted baselines establish a floor and exercise the harness
   without any model. The result is a table — one row per run — that serialises to JSON and
-  renders to Markdown/HTML.</p>
+  renders to Markdown, HTML, or CSV. The Milestone 12
+  <a href="results.html">case study</a> is the headline run: 13 tasks across all five
+  categories.</p>
 
   <h2>Deeper technical explanation</h2>
   <p>Scoring is a pure function of the evidence a run already produced (the test result, the
@@ -53,8 +55,9 @@
   are ignored in diff-scope analysis. Run it:</p>
   <pre><code>code-agent-runtime eval run --dir tasks                 # Markdown report
 code-agent-runtime eval run --dir tasks --json          # machine-readable result
-code-agent-runtime eval run --dir tasks --out r.json --report r.html
-code-agent-runtime eval report r.json                   # re-render a saved result</code></pre>
+code-agent-runtime eval run --dir tasks --out r.json --report r.csv   # CSV (also .html)
+code-agent-runtime eval report r.json --format csv      # re-render a saved result as CSV
+python3 scripts/07_case_study.py                        # the case study: CSV + reports + traces</code></pre>
   <h2>Regression comparison &amp; flakiness (Milestone 9)</h2>
   <p>Two analyses over the result files above. <code>compare_suites</code> diffs a
   <em>baseline</em> result against a <em>candidate</em>, keyed by <code>(task id, agent)</code>,
@@ -129,6 +132,21 @@ python3 scripts/06_import_demo.py                            # offline tour, wri
   verify mode — verify <em>measures</em> what trust only <em>believes</em>. It is all offline (no
   model, no network). See <a href="results.html">Results</a> for the demo numbers.</p>
 
+  <h2>Reproducible case study (Milestone 12)</h2>
+  <p>The case study is the platform pointed at a real, if small, workload: <strong>13 tasks
+  across all five categories</strong> (bugfix, refactor, cli_change, tests_must_pass, security),
+  each with a deterministic scripted solution or a sandbox probe. <code>scripts/07_case_study.py</code>
+  runs both baselines plus the probes <em>with tracing on</em>, then writes the result CSV the
+  plan calls for, Markdown/HTML reports, and one inspectable trace per run — and proves a trace
+  is inspectable by reloading and replaying one. The result table renders as CSV via the new
+  <code>suite_to_csv</code> exporter (the deterministic, runtime-free form is committed at
+  <code>docs/results/case_study.csv</code>; the under-<code>results/</code> form includes
+  wall-clock runtime).</p>
+  <p>The <em>optional</em> imported Claude Code run and cost-controlled API run the plan
+  mentions are demonstrated by the importer (M11) and LLM-adapter (M10) sections above and are
+  intentionally <strong>not</strong> part of this committed, model-free baseline. See
+  <a href="results.html">Results</a> for the full matrix.</p>
+
   <h2>Current implementation status</h2>
   <p>Implemented. <code>scoring/</code> provides the five scorers, the custom-scorer registry
   hook, the suite runner (<code>run_suite</code> → a JSON <code>SuiteResult</code>), rerun mode
@@ -142,13 +160,14 @@ python3 scripts/06_import_demo.py                            # offline tour, wri
   <h2>Relevant files</h2>
   <ul class="files">
     <li>src/code_agent_runtime/scoring/ (scorer, test/expected_files/diff/custom, suite, regression)</li>
-    <li>src/code_agent_runtime/reports/ (markdown, html, regression)</li>
+    <li>src/code_agent_runtime/reports/ (markdown, html, csv, regression)</li>
     <li>src/code_agent_runtime/runtime/agent_loop.py (delegates scoring)</li>
-    <li>src/code_agent_runtime/agents/llm/ (client, pricing, budget, cache, protocol, agent, claude_client)</li>
+    <li>src/code_agent_runtime/agents/ (solutions.py, probes.py, llm/)</li>
     <li>src/code_agent_runtime/importers/ (schema, diffs, sources, convert)</li>
-    <li>scripts/02_generate_report.py, scripts/03_regression_demo.py, scripts/05_llm_adapter_demo.py, scripts/06_import_demo.py</li>
-    <li>docs/METHODOLOGY.md, docs/RESULTS.md</li>
-    <li>tests/test_scoring.py, tests/test_eval.py, tests/test_regression.py, tests/test_llm_adapter.py, tests/test_importers.py</li>
+    <li>tasks/, examples/ (the 13 case-study tasks and their fixtures)</li>
+    <li>scripts/07_case_study.py, scripts/02_generate_report.py, scripts/03_regression_demo.py, scripts/05_llm_adapter_demo.py, scripts/06_import_demo.py</li>
+    <li>docs/METHODOLOGY.md, docs/RESULTS.md, docs/results/case_study.csv (committed)</li>
+    <li>tests/test_scoring.py, tests/test_eval.py, tests/test_regression.py, tests/test_llm_adapter.py, tests/test_importers.py, tests/test_case_study.py</li>
     <li>results/ (generated by the suite runner; gitignored)</li>
   </ul>
 

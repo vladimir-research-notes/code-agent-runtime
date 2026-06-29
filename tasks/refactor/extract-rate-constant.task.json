@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "id": "refactor/extract-rate-constant",
+  "title": "Extract the duplicated tax rate into a named constant",
+  "prompt": "pricing.py hard-codes the tax rate 0.07 in two functions. Refactor it into a single module-level named constant (for example TAX_RATE) and use that constant in both functions, without changing behaviour. This task is scored by a custom scorer that requires BOTH the tests to keep passing AND the change to stay confined to pricing.py.",
+  "fixture": "../../examples/refactor_pricing",
+  "allowed_tools": ["read_file", "search_repo", "apply_patch", "write_file", "run_tests"],
+  "timeout_seconds": 180,
+  "scoring_method": "custom",
+  "test_command": ["python3", "-m", "pytest", "-q"],
+  "scoring_config": {
+    "name": "tests_pass_and_diff_scope",
+    "allowed_paths": ["pricing.py"]
+  },
+  "resource_limits": {
+    "cpu_seconds": 30,
+    "memory_mb": 512,
+    "network": false
+  },
+  "metadata": {
+    "category": "refactor",
+    "language": "python",
+    "difficulty": "intro",
+    "scores_demonstrated": "custom",
+    "case_study": true
+  }
+}

@@ -58,16 +58,21 @@
   <code>outside_workspace</code>, <code>command_denylist</code>, <code>network_denied</code>) — so
   the trace shows exactly what was blocked and why.</p>
 
-  <h2>Unsafe demo (blocked vs. allowed)</h2>
-  <p>The built-in <strong>probe</strong> agent drives <code>security/unsafe-command-demo</code> and
-  attempts the actions a coding agent must never perform. Run it:</p>
-  <pre><code>code-agent-runtime run security/unsafe-command-demo --agent probe</code></pre>
-  <p>Under the default policy the sandbox blocks every one — reading <code>.env</code>
+  <h2>Unsafe demos (blocked vs. allowed)</h2>
+  <p>Two built-in <strong>probe</strong> agents attempt the actions a coding agent must never
+  perform, so the sandbox can be observed refusing them. Run them:</p>
+  <pre><code>code-agent-runtime run security/unsafe-command-demo --agent probe
+code-agent-runtime run security/secret-read-demo --agent probe</code></pre>
+  <p><code>security/unsafe-command-demo</code> covers the broad classes — reading <code>.env</code>
   (<code>denied_path</code>), reading <code>~/.aws/credentials</code> and <code>/etc/shadow</code>
   (<code>denied_path</code>/<code>outside_workspace</code>), writing outside the workspace
   (<code>outside_workspace</code>), <code>rm -rf .</code> (<code>command_denylist</code>), and a
-  <code>curl</code> egress (<code>network_denied</code>) — while the benign read of
-  <code>app.py</code> still succeeds. Add <code>--no-sandbox</code> to disable enforcement.</p>
+  <code>curl</code> egress (<code>network_denied</code>). <code>security/secret-read-demo</code>
+  is the credential-exfiltration scenario — reading <code>.env</code>, an SSH key under
+  <code>.ssh/</code>, and a <code>*.pem</code> key (all <code>denied_path</code>), reading
+  <code>/etc/passwd</code> (<code>outside_workspace</code>), and uploading with <code>scp</code> /
+  <code>curl</code> (<code>network_denied</code>). Both block every unsafe step while the benign
+  in-workspace read still succeeds. Add <code>--no-sandbox</code> to disable enforcement.</p>
 
   <h2>Current implementation status</h2>
   <p>Implemented (Milestone 7). The <code>sandbox/</code> package defines <code>SandboxPolicy</code>
@@ -83,9 +88,9 @@
     <li>src/code_agent_runtime/sandbox/permissions.py (Sandbox, PolicyDecision)</li>
     <li>src/code_agent_runtime/sandbox/secret_scanner.py (redact_text, count_secrets)</li>
     <li>src/code_agent_runtime/runtime/execution.py, runtime/agent_loop.py (enforcement)</li>
-    <li>src/code_agent_runtime/agents/probes.py (the unsafe probe agent)</li>
+    <li>src/code_agent_runtime/agents/probes.py (the two unsafe probe agents)</li>
     <li>src/code_agent_runtime/hygiene.py (commit-hygiene guard, Milestone 1)</li>
-    <li>docs/SECURITY_MODEL.md, tests/test_sandbox.py</li>
+    <li>docs/SECURITY_MODEL.md, tests/test_sandbox.py, tests/test_case_study.py</li>
   </ul>
 
   <h2>Current test/result status</h2>

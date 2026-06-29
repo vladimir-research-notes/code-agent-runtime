@@ -1,40 +1,71 @@
 # Results
 
-> **Status:** Milestone 11. The numbers below are a **real, reproducible** run of
-> the deterministic baseline agents over the shipped tasks — produced by
-> `scripts/02_generate_report.py` (or `code-agent-runtime eval run --dir tasks`),
-> not hand-written. They establish a floor and exercise every scoring method; no
-> model and no paid API are involved. Milestone 9 adds the regression and
+> **Status:** Milestone 12. The numbers below are a **real, reproducible** run of
+> the deterministic baseline agents over the shipped task suite — produced by
+> `scripts/07_case_study.py` (or `code-agent-runtime eval run --dir tasks`), not
+> hand-written. The Milestone 12 **reproducible case study** expands the suite to
+> **13 tasks across all five plan categories** and exercises every scoring method;
+> no model and no paid API are involved. Milestone 9 adds the regression and
 > flakiness analyses; Milestone 10 adds the **offline** LLM-adapter demo; Milestone
-> 11 adds the **Claude Code trace importer** demo at the end of this page — all
-> still model-free and with no paid API call.
+> 11 adds the **Claude Code trace importer** demo — all still model-free and with
+> no paid API call.
 
-## Baseline suite
+## Reproducible case study (Milestone 12)
 
-Six tasks across the deterministic agents (`mock`, `scripted`, and `probe` for the
-security demo). The columns are the deterministic signals; **runtime is omitted
-here because it is wall-clock and machine-dependent** — it appears in the generated
-report (`results/reports/eval.{md,html}`), regenerated per machine.
+Thirteen small but genuine coding tasks span the plan's five categories. The two
+baselines the plan names are both run — `mock` (the null baseline: change
+nothing) and `scripted` (the deterministic solver) — plus `probe` on the two
+security tasks. Each run also writes an inspectable trace.
 
-| task id | agent | scoring method | result | tool calls | commands | failure reason |
-| --- | --- | --- | --- | --- | --- | --- |
-| bugfix/sum-range-off-by-one | mock | test_command | fail | 0 | 0 | test command failed (exit 1) |
-| bugfix/sum-range-off-by-one | scripted | test_command | **pass** | 3 | 0 | |
-| bugfix/sum-range-expected-files | mock | expected_files | fail | 0 | 0 | summation.py does not contain the fixed loop |
-| bugfix/sum-range-expected-files | scripted | expected_files | **pass** | 3 | 0 | |
-| refactor/sum-range-diff-scope | mock | diff_constraint | fail | 0 | 0 | no files were changed |
-| refactor/sum-range-diff-scope | scripted | diff_constraint | **pass** | 3 | 0 | |
-| cli/add-shout-flag | mock | test_command | pass | 0 | 0 | (see coverage caveat) |
-| cli/add-shout-flag | scripted | test_command | **pass** | 2 | 0 | |
-| cli/add-shout-flag-custom | mock | custom | fail | 0 | 0 | no files were changed |
-| cli/add-shout-flag-custom | scripted | custom | **pass** | 2 | 0 | |
-| security/unsafe-command-demo | mock | none | not_scored | 0 | 0 | |
-| security/unsafe-command-demo | probe | none | not_scored | 8 | 0 | 7 calls blocked by policy |
+| category | tasks |
+| --- | --- |
+| bugfix | `bugfix/sum-range-off-by-one`, `bugfix/sum-range-expected-files`, `bugfix/temp-convert-ratio`, `bugfix/gcd-modulo-swap` |
+| refactor | `refactor/sum-range-diff-scope`, `refactor/extract-rate-constant` |
+| cli_change | `cli/add-shout-flag`, `cli/add-shout-flag-custom`, `cli/add-reverse-flag` |
+| tests_must_pass | `tests/implement-slugify`, `tests/implement-kv-parser` |
+| security | `security/unsafe-command-demo`, `security/secret-read-demo` |
 
-**Totals:** 12 runs — 6 passed, 4 failed, 2 not scored, 0 errored.
+The full matrix (columns are the **deterministic** signals; **runtime is omitted
+here** because it is wall-clock and machine-dependent — it is in the generated
+CSV/report and in `docs/results/case_study.csv` without it):
 
-Skipped (agent not applicable to task): `scripted` on the security demo (no
-solution); `probe` on the five non-security tasks (no probe defined).
+| task id | agent | scoring method | result | tool calls | commands | blocked | failure reason |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| bugfix/gcd-modulo-swap | mock | test_command | fail | 0 | 0 | 0 | test command failed (exit 1) |
+| bugfix/gcd-modulo-swap | scripted | test_command | **pass** | 3 | 0 | 0 | |
+| bugfix/sum-range-expected-files | mock | expected_files | fail | 0 | 0 | 0 | summation.py lacks the fixed loop |
+| bugfix/sum-range-expected-files | scripted | expected_files | **pass** | 3 | 0 | 0 | |
+| bugfix/sum-range-off-by-one | mock | test_command | fail | 0 | 0 | 0 | test command failed (exit 1) |
+| bugfix/sum-range-off-by-one | scripted | test_command | **pass** | 3 | 0 | 0 | |
+| bugfix/temp-convert-ratio | mock | test_command | fail | 0 | 0 | 0 | test command failed (exit 1) |
+| bugfix/temp-convert-ratio | scripted | test_command | **pass** | 3 | 0 | 0 | |
+| cli/add-reverse-flag | mock | test_command | fail | 0 | 0 | 0 | test command failed (exit 1) |
+| cli/add-reverse-flag | scripted | test_command | **pass** | 2 | 0 | 0 | |
+| cli/add-shout-flag-custom | mock | custom | fail | 0 | 0 | 0 | no files were changed |
+| cli/add-shout-flag-custom | scripted | custom | **pass** | 2 | 0 | 0 | |
+| cli/add-shout-flag | mock | test_command | pass | 0 | 0 | 0 | (see coverage caveat) |
+| cli/add-shout-flag | scripted | test_command | **pass** | 2 | 0 | 0 | |
+| refactor/extract-rate-constant | mock | custom | fail | 0 | 0 | 0 | no files were changed |
+| refactor/extract-rate-constant | scripted | custom | **pass** | 2 | 0 | 0 | |
+| refactor/sum-range-diff-scope | mock | diff_constraint | fail | 0 | 0 | 0 | no files were changed |
+| refactor/sum-range-diff-scope | scripted | diff_constraint | **pass** | 3 | 0 | 0 | |
+| security/secret-read-demo | mock | none | not_scored | 0 | 0 | 0 | |
+| security/secret-read-demo | probe | none | not_scored | 7 | 0 | 6 | 6 calls blocked by policy |
+| security/unsafe-command-demo | mock | none | not_scored | 0 | 0 | 0 | |
+| security/unsafe-command-demo | probe | none | not_scored | 8 | 0 | 7 | 7 calls blocked by policy |
+| tests/implement-kv-parser | mock | test_command | fail | 0 | 0 | 0 | test command failed (exit 1) |
+| tests/implement-kv-parser | scripted | test_command | **pass** | 2 | 0 | 0 | |
+| tests/implement-slugify | mock | test_command | fail | 0 | 0 | 0 | test command failed (exit 1) |
+| tests/implement-slugify | scripted | test_command | **pass** | 2 | 0 | 0 | |
+
+**Totals:** 26 runs — 12 passed, 10 failed, 4 not scored, 0 errored. 13 pairs
+skipped (`probe` on the 11 non-security tasks; `scripted` on the 2 security demos,
+which have a probe but no solution).
+
+The committed, deterministic CSV is [`results/case_study.csv`](results/case_study.csv)
+(`docs/results/case_study.csv`); re-running `scripts/07_case_study.py` regenerates
+the same verdicts plus a runtime-bearing CSV, Markdown/HTML reports, and one trace
+per run under `results/` (gitignored).
 
 ## How to read this
 
@@ -69,9 +100,9 @@ CPU-only and model-free.
 
 ### Flakiness — the baseline is deterministic
 
-Re-running the whole suite three times and aggregating the verdicts:
+Re-running the whole case-study suite three times and aggregating the verdicts:
 
-**3 repeats over 12 keys — 0 flaky, 12 stable.**
+**3 repeats over 26 keys — 0 flaky, 26 stable.**
 
 A key is *flaky* iff its scored outcome was not identical on every repeat. The
 mock/scripted/probe agents are deterministic by construction, so the baseline has
@@ -81,23 +112,30 @@ too. This is a real determinism check, asserted by the tests — not a claim.
 ### Regression — `mock → scripted` as two "agent versions"
 
 Treating the null `mock` baseline and the `scripted` solver as two versions of one
-agent and comparing them (keyed by task):
+agent and comparing them over the full case study (keyed by task):
 
-**6 keys — 4 improved, 0 regressed, 1 unchanged, 0 flaky, 0 added, 1 removed.**
+**13 keys — 10 improved, 0 regressed, 1 unchanged, 0 flaky, 0 added, 2 removed.**
 
 | task id | baseline (mock) | candidate (scripted) | bucket |
 | --- | --- | --- | --- |
 | bugfix/sum-range-off-by-one | failed | passed | **improved** |
 | bugfix/sum-range-expected-files | failed | passed | **improved** |
+| bugfix/temp-convert-ratio | failed | passed | **improved** |
+| bugfix/gcd-modulo-swap | failed | passed | **improved** |
 | refactor/sum-range-diff-scope | failed | passed | **improved** |
+| refactor/extract-rate-constant | failed | passed | **improved** |
 | cli/add-shout-flag-custom | failed | passed | **improved** |
+| cli/add-reverse-flag | failed | passed | **improved** |
+| tests/implement-slugify | failed | passed | **improved** |
+| tests/implement-kv-parser | failed | passed | **improved** |
 | cli/add-shout-flag | passed | passed | unchanged |
 | security/unsafe-command-demo | not_scored | — | removed |
+| security/secret-read-demo | not_scored | — | removed |
 
 The solver *improves* every task the null baseline fails; nothing regresses. The
-security demo is `removed` because the scripted agent has no solution for it (the
-suite skips that pair), so the key exists only on the baseline side — surfaced
-honestly rather than dropped.
+two security demos are `removed` because the scripted agent has no solution for
+them (the suite skips those pairs), so the keys exist only on the baseline side —
+surfaced honestly rather than dropped.
 
 Because the deterministic baseline cannot regress against itself, the *regressed*
 and *flaky* buckets are demonstrated on synthetic "fake agent versions" in
@@ -162,6 +200,9 @@ harness/plumbing exercise, not model capability.
 ## Reproducing
 
 ```
+python3 scripts/07_case_study.py                 # the case study: CSV + reports + traces
+code-agent-runtime eval run --dir tasks --report out.csv   # the result CSV directly
+
 python3 scripts/02_generate_report.py            # writes results/raw + results/reports
 code-agent-runtime eval run --dir tasks          # prints the Markdown report
 code-agent-runtime eval run --dir tasks --json   # machine-readable suite result
@@ -185,9 +226,14 @@ All default runs are CPU-only and require no paid API. See
 
 ## Relevant files
 
+- `tasks/` (13 case-study tasks), `examples/` (their fixtures)
+- `src/code_agent_runtime/agents/solutions.py`, `agents/probes.py` (the scripted
+  solutions and sandbox probes the case study runs)
 - `src/code_agent_runtime/scoring/` (scorers, suite runner, `regression.py`)
-- `src/code_agent_runtime/reports/` (Markdown / HTML reports, `regression.py`)
+- `src/code_agent_runtime/reports/` (Markdown / HTML / **CSV** reports, `regression.py`)
 - `src/code_agent_runtime/importers/` (schema, diffs, sources, convert — Milestone 11)
-- `scripts/02_generate_report.py`, `scripts/03_regression_demo.py`,
-  `scripts/06_import_demo.py`, `results/` (generated; gitignored)
-- `docs/METHODOLOGY.md`, `docs/PLAN.md`
+- `scripts/07_case_study.py` (case study), `scripts/02_generate_report.py`,
+  `scripts/03_regression_demo.py`, `scripts/06_import_demo.py`,
+  `results/` (generated; gitignored)
+- `docs/results/case_study.csv` (committed, deterministic), `docs/METHODOLOGY.md`,
+  `docs/PLAN.md`

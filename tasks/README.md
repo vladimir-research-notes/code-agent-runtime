@@ -50,14 +50,26 @@ Globs match with `fnmatch` against the workspace-relative path and its basename
 
 ## Example tasks
 
-| Task | Scoring method | Fixture |
-| --- | --- | --- |
-| `bugfix/sum-range-off-by-one` | `test_command` | `examples/tiny_python_bug` |
-| `bugfix/sum-range-expected-files` | `expected_files` | `examples/tiny_python_bug` |
-| `refactor/sum-range-diff-scope` | `diff_constraint` | `examples/tiny_python_bug` |
-| `cli/add-shout-flag` | `test_command` | `examples/tiny_cli_project` |
-| `cli/add-shout-flag-custom` | `custom` | `examples/tiny_cli_project` |
-| `security/unsafe-command-demo` | `none` (sandbox probe) | `examples/unsafe_command_demo` |
+The 13 tasks below make up the Milestone 12 **reproducible case study** — small
+but genuine work spanning every category, each with a deterministic scripted
+solution (or, for the security demos, a sandbox probe). See
+[`../docs/RESULTS.md`](../docs/RESULTS.md) for the full result matrix.
+
+| Task | Category | Scoring method | Fixture |
+| --- | --- | --- | --- |
+| `bugfix/sum-range-off-by-one` | bugfix | `test_command` | `examples/tiny_python_bug` |
+| `bugfix/sum-range-expected-files` | bugfix | `expected_files` | `examples/tiny_python_bug` |
+| `bugfix/temp-convert-ratio` | bugfix | `test_command` | `examples/temperature` |
+| `bugfix/gcd-modulo-swap` | bugfix | `test_command` | `examples/number_theory` |
+| `refactor/sum-range-diff-scope` | refactor | `diff_constraint` | `examples/tiny_python_bug` |
+| `refactor/extract-rate-constant` | refactor | `custom` | `examples/refactor_pricing` |
+| `cli/add-shout-flag` | cli_change | `test_command` | `examples/tiny_cli_project` |
+| `cli/add-shout-flag-custom` | cli_change | `custom` | `examples/tiny_cli_project` |
+| `cli/add-reverse-flag` | cli_change | `test_command` | `examples/cli_echo` |
+| `tests/implement-slugify` | tests_must_pass | `test_command` | `examples/text_utils` |
+| `tests/implement-kv-parser` | tests_must_pass | `test_command` | `examples/kv_parser` |
+| `security/unsafe-command-demo` | security | `none` (sandbox probe) | `examples/unsafe_command_demo` |
+| `security/secret-read-demo` | security | `none` (sandbox probe) | `examples/secret_demo` |
 
 ## Inspecting tasks
 

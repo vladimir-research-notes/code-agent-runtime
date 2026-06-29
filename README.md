@@ -8,7 +8,7 @@ infrastructure *around* coding agents — task setup, tools, permissions,
 execution, tracing, replay, scoring, regression comparison, and reports. It is
 **not** a tutorial, a clone of a commercial tool, or a benchmark leaderboard.
 
-> Status: **Milestone 11 — Claude Code trace importer.** This
+> Status: **Milestone 12 — Reproducible case study.** This
 > repository is being built milestone by milestone (see [`docs/PLAN.md`](docs/PLAN.md)).
 > The package, docs, website, packaging, and tests exist, plus an environment check, a
 > repository hygiene scanner, a versioned task format (schema, loader, example
@@ -35,8 +35,13 @@ execution, tracing, replay, scoring, regression comparison, and reports. It is
 > log, an exported transcript, or a deterministic synthetic run — into this
 > runtime's trace format and score it with the **same** scorer, in *verify* mode by
 > re-running the task's real test command or in *trust* mode against the source's
-> declared evidence, via the `import` CLI).
-> The reproducible case study is the next milestone.
+> declared evidence, via the `import` CLI), and a reproducible case study (13 small
+> but genuine tasks across all five categories, run by the mock and scripted baselines
+> plus the sandbox probes, emitting a result CSV, Markdown/HTML reports, and one
+> inspectable trace per run, via `scripts/07_case_study.py` and a `suite_to_csv`
+> exporter; the committed table is [`docs/RESULTS.md`](docs/RESULTS.md) and
+> [`docs/results/case_study.csv`](docs/results/case_study.csv)).
+> Website polish and final hardening are the remaining milestones.
 
 ## Design constraints
 
@@ -108,13 +113,11 @@ PYTHONPATH=src python3 -m code_agent_runtime tasks list --dir tasks
 PYTHONPATH=src python3 -m code_agent_runtime tasks show bugfix/sum-range-off-by-one --dir tasks
 ```
 
-Six shipped tasks point at fixtures under `examples/` — one per scoring method:
-`bugfix/sum-range-off-by-one` and `cli/add-shout-flag` (`test_command`),
-`bugfix/sum-range-expected-files` (`expected_files`),
-`refactor/sum-range-diff-scope` (`diff_constraint`),
-`cli/add-shout-flag-custom` (`custom`), and `security/unsafe-command-demo`
-(`none`, the sandbox probe). See [`tasks/README.md`](tasks/README.md) for the
-full field reference.
+The Milestone 12 case study ships **13 tasks across all five categories** —
+bugfix, refactor, cli_change, tests_must_pass, and security — pointing at fixtures
+under `examples/` and exercising every scoring method. See
+[`tasks/README.md`](tasks/README.md) for the full list and field reference, and
+[`docs/RESULTS.md`](docs/RESULTS.md) for the result matrix.
 
 ### Running a task (Milestone 4)
 
@@ -351,6 +354,36 @@ fixture (diff-only / transcript-only imports fall back to trust and say so). A t
 shows the payoff: a broken change carrying a forged "tests passed" scores `passed`
 in trust mode but `failed` in verify mode. The synthetic run is a scripted solution
 — a harness exercise, not model capability.
+
+### Reproducible case study (Milestone 12)
+
+The case study points the whole platform at a real, if small, workload: **13 tasks
+across all five categories** (bugfix, refactor, cli_change, tests_must_pass,
+security), each with a deterministic scripted solution or a sandbox probe. It runs
+the two baselines the plan names — `mock` (the null baseline) and `scripted` (the
+solver) — plus `probe` on the security tasks, with tracing on, and emits the result
+CSV, Markdown/HTML reports, and one inspectable trace per run.
+
+```bash
+# Run the case study: writes results/raw/case_study.json, results/reports/case_study.{csv,md,html},
+# and one trace per run under results/traces/case_study/ (all gitignored), then prints the report:
+python3 scripts/07_case_study.py
+
+# Regenerate the committed, deterministic CSV (no machine-dependent runtime column):
+python3 scripts/07_case_study.py --canonical-csv docs/results/case_study.csv
+
+# The result table as CSV directly, via the eval CLI (format inferred from .csv):
+PYTHONPATH=src python3 -m code_agent_runtime eval run --dir tasks --report out.csv
+```
+
+The outcome is the discriminating one the harness should produce: the `scripted`
+solver passes every solvable task while the null `mock` baseline fails the ones
+that require a change (26 runs — 12 passed, 10 failed, 4 not scored). The
+committed, model-free result lives in [`docs/RESULTS.md`](docs/RESULTS.md) and
+[`docs/results/case_study.csv`](docs/results/case_study.csv). The *optional*
+imported Claude Code run and cost-controlled API run are demonstrated by the M11
+importer and M10 LLM-adapter flows above and are intentionally not part of this
+committed baseline.
 
 Optionally install the package and dev extras in a virtual environment:
 

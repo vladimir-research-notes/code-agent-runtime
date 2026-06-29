@@ -9,7 +9,7 @@ trace inspection/replay tooling (``trace show`` / ``trace report``), the
 Milestone 7 sandbox controls (enforced by default on ``run``, with
 ``run --no-sandbox`` to disable and ``run --agent probe`` to exercise them), the
 Milestone 8 scoring/eval suite (``eval run`` runs a task×agent matrix and
-emits a result file and a Markdown/HTML report; ``eval report`` re-renders a saved
+emits a result file and a Markdown/HTML/CSV report; ``eval report`` re-renders a saved
 result file), and the Milestone 9 regression/flakiness tooling (``eval compare``
 diffs two result files into improved/regressed/unchanged/flaky buckets; ``eval
 rerun`` re-runs the matrix N times and reports flaky keys), and the Milestone 10
@@ -48,8 +48,8 @@ from . import traces as _traces
 
 # The milestone the runtime currently implements. Kept here so ``info`` can
 # report honest project status without scanning the filesystem.
-CURRENT_MILESTONE = "Milestone 11 — Claude Code trace importer"
-NEXT_MILESTONE = "Milestone 12 — Reproducible case study"
+CURRENT_MILESTONE = "Milestone 12 — Reproducible case study"
+NEXT_MILESTONE = "Milestone 13 — Multi-page website polish"
 
 #: Default directory the ``tasks`` subcommands scan.
 DEFAULT_TASKS_DIR = "tasks"
@@ -329,12 +329,13 @@ def _add_eval_parser(subparsers: argparse._SubParsersAction) -> None:
     """Add the ``eval`` command group (``run`` / ``report``) — Milestone 8.
 
     ``eval run`` runs a task×agent matrix, scores each run, and writes a result
-    file and/or a Markdown/HTML report. ``eval report`` re-renders a saved result
-    file without re-running anything.
+    file and/or a Markdown/HTML/CSV report (format inferred from the path's
+    extension). ``eval report`` re-renders a saved result file without re-running
+    anything.
     """
     p_eval = subparsers.add_parser(
         "eval",
-        help="Run a scoring/eval suite and generate Markdown/HTML reports.",
+        help="Run a scoring/eval suite and generate Markdown/HTML/CSV reports.",
     )
     p_eval.set_defaults(func=_make_help_printer(p_eval))
     actions = p_eval.add_subparsers(dest="eval_command", metavar="<action>")
@@ -377,11 +378,11 @@ def _add_eval_parser(subparsers: argparse._SubParsersAction) -> None:
         "--report",
         default=None,
         metavar="PATH",
-        help="Write a report to PATH (format inferred: .html → HTML, else Markdown).",
+        help="Write a report to PATH (format inferred: .html → HTML, .csv → CSV, else Markdown).",
     )
     p_run.add_argument(
         "--format",
-        choices=["markdown", "html"],
+        choices=["markdown", "html", "csv"],
         default="markdown",
         help="Format for the report printed to stdout (default: markdown).",
     )
@@ -396,7 +397,7 @@ def _add_eval_parser(subparsers: argparse._SubParsersAction) -> None:
     p_report.add_argument("path", help="Path to a suite result JSON (from `eval run --out`).")
     p_report.add_argument(
         "--format",
-        choices=["markdown", "html"],
+        choices=["markdown", "html", "csv"],
         default="markdown",
         help="Report format (default: markdown).",
     )
@@ -979,14 +980,21 @@ def _cmd_trace_report(args: argparse.Namespace) -> int:
 
 
 def _render_suite(suite: _scoring.SuiteResult, fmt: str) -> str:
-    """Render a suite result as Markdown or HTML."""
+    """Render a suite result as Markdown, HTML, or CSV."""
     if fmt == "html":
         return _reports.suite_to_html(suite)
+    if fmt == "csv":
+        return _reports.suite_to_csv(suite)
     return _reports.suite_to_markdown(suite)
 
 
 def _fmt_for_path(path: str) -> str:
-    return "html" if path.lower().endswith((".html", ".htm")) else "markdown"
+    lower = path.lower()
+    if lower.endswith((".html", ".htm")):
+        return "html"
+    if lower.endswith(".csv"):
+        return "csv"
+    return "markdown"
 
 
 def _select_eval_tasks(args: argparse.Namespace) -> list[_tasks.Task] | None:

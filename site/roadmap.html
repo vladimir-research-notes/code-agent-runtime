@@ -26,7 +26,7 @@
 <main>
   <h1>Roadmap</h1>
   <p class="lede">Built milestone by milestone; committed locally after each coherent step.</p>
-  <p><span class="status done">status: Milestone 11 complete</span></p>
+  <p><span class="status done">status: Milestone 12 complete</span></p>
 
   <h2>Brief explanation</h2>
   <p>The platform is built in small, verifiable milestones. Each milestone runs its tests,
@@ -47,13 +47,13 @@
     <tr><td>9</td><td>Regression comparison and flakiness analysis</td><td>done</td></tr>
     <tr><td>10</td><td>Optional cost-controlled LLM adapter</td><td>done</td></tr>
     <tr><td>11</td><td>Claude Code trace importer</td><td>done</td></tr>
-    <tr><td>12</td><td>Reproducible case study</td><td>planned</td></tr>
+    <tr><td>12</td><td>Reproducible case study</td><td>done</td></tr>
     <tr><td>13</td><td>Multi-page website polish</td><td>planned</td></tr>
     <tr><td>14</td><td>Final hardening</td><td>planned</td></tr>
   </table>
 
   <h2>Current implementation status</h2>
-  <p>Milestones 0–11 are complete: package scaffold, CLI, docs skeleton, this website,
+  <p>Milestones 0–12 are complete: package scaffold, CLI, docs skeleton, this website,
   packaging, CPU-only tests, an environment check and repository hygiene scanner, a versioned
   task format (schema, loader, example tasks, and <code>tasks</code> CLI), a tool registry
   with seven structured core tools (and a <code>tools</code> CLI), a local runtime state
@@ -77,21 +77,25 @@
   and a Claude Code trace importer (normalise an external, Claude-Code-like run into this
   runtime's trace format and score it with the same scorer — in <em>verify</em> mode by
   re-running the task's real test command, or in <em>trust</em> mode against the source's
-  declared evidence — via the <code>import</code> CLI).</p>
+  declared evidence — via the <code>import</code> CLI), and a reproducible case study (13 small
+  but genuine tasks across all five categories, run by both baselines plus the sandbox probes,
+  emitting a result CSV, Markdown/HTML reports, and one trace per run, via
+  <code>scripts/07_case_study.py</code> and a new <code>suite_to_csv</code> exporter).</p>
 
   <h2>Relevant files</h2>
   <ul class="files">
     <li>docs/PLAN.md</li>
     <li>docs/milestones/</li>
     <li>docs/commits/, docs/review_notes/</li>
-    <li>src/code_agent_runtime/agents/ (incl. llm/), src/code_agent_runtime/runtime/</li>
+    <li>tasks/, examples/ (the case-study tasks and fixtures)</li>
+    <li>src/code_agent_runtime/agents/ (incl. llm/, solutions.py, probes.py), src/code_agent_runtime/runtime/</li>
     <li>src/code_agent_runtime/traces/, src/code_agent_runtime/sandbox/</li>
-    <li>src/code_agent_runtime/scoring/ (incl. regression.py), src/code_agent_runtime/reports/</li>
-    <li>src/code_agent_runtime/importers/ (schema, diffs, sources, convert)</li>
+    <li>src/code_agent_runtime/scoring/ (incl. regression.py), src/code_agent_runtime/reports/ (incl. csv.py)</li>
+    <li>src/code_agent_runtime/importers/, scripts/07_case_study.py</li>
   </ul>
 
   <h2>Current test/result status</h2>
-  <p>All CPU-only tests pass. Next: Milestone 12 — Reproducible case study.</p>
+  <p>All CPU-only tests pass. Next: Milestone 13 — Multi-page website polish.</p>
 
   <h2>Open questions / limitations</h2>
   <p>The plan may evolve as real subsystems land; this table is updated at every milestone.</p>

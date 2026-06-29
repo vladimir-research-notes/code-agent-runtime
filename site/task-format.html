@@ -61,25 +61,32 @@
   <h2>Current implementation status</h2>
   <p>Implemented. The <code>tasks/</code> package provides the schema, loader (JSON + optional
   YAML), and fixture resolution; <code>scoring_config</code> is validated per scoring method
-  (Milestone 8). Six example tasks ship with real fixtures — one per scoring method — and the
-  CLI can list and inspect them:</p>
+  (Milestone 8). The Milestone 12 case study ships <strong>13 tasks across all five categories</strong>
+  with real fixtures, exercising every scoring method; the CLI can list and inspect them:</p>
   <pre><code>code-agent-runtime tasks list --dir tasks
 code-agent-runtime tasks show bugfix/sum-range-off-by-one --dir tasks</code></pre>
   <table>
-    <tr><th>Task</th><th>Scoring method</th><th>Fixture</th></tr>
-    <tr><td>bugfix/sum-range-off-by-one</td><td>test_command</td><td>examples/tiny_python_bug</td></tr>
-    <tr><td>bugfix/sum-range-expected-files</td><td>expected_files</td><td>examples/tiny_python_bug</td></tr>
-    <tr><td>refactor/sum-range-diff-scope</td><td>diff_constraint</td><td>examples/tiny_python_bug</td></tr>
-    <tr><td>cli/add-shout-flag</td><td>test_command</td><td>examples/tiny_cli_project</td></tr>
-    <tr><td>cli/add-shout-flag-custom</td><td>custom</td><td>examples/tiny_cli_project</td></tr>
-    <tr><td>security/unsafe-command-demo</td><td>none (probe)</td><td>examples/unsafe_command_demo</td></tr>
+    <tr><th>Task</th><th>Category</th><th>Scoring method</th><th>Fixture</th></tr>
+    <tr><td>bugfix/sum-range-off-by-one</td><td>bugfix</td><td>test_command</td><td>examples/tiny_python_bug</td></tr>
+    <tr><td>bugfix/sum-range-expected-files</td><td>bugfix</td><td>expected_files</td><td>examples/tiny_python_bug</td></tr>
+    <tr><td>bugfix/temp-convert-ratio</td><td>bugfix</td><td>test_command</td><td>examples/temperature</td></tr>
+    <tr><td>bugfix/gcd-modulo-swap</td><td>bugfix</td><td>test_command</td><td>examples/number_theory</td></tr>
+    <tr><td>refactor/sum-range-diff-scope</td><td>refactor</td><td>diff_constraint</td><td>examples/tiny_python_bug</td></tr>
+    <tr><td>refactor/extract-rate-constant</td><td>refactor</td><td>custom</td><td>examples/refactor_pricing</td></tr>
+    <tr><td>cli/add-shout-flag</td><td>cli_change</td><td>test_command</td><td>examples/tiny_cli_project</td></tr>
+    <tr><td>cli/add-shout-flag-custom</td><td>cli_change</td><td>custom</td><td>examples/tiny_cli_project</td></tr>
+    <tr><td>cli/add-reverse-flag</td><td>cli_change</td><td>test_command</td><td>examples/cli_echo</td></tr>
+    <tr><td>tests/implement-slugify</td><td>tests_must_pass</td><td>test_command</td><td>examples/text_utils</td></tr>
+    <tr><td>tests/implement-kv-parser</td><td>tests_must_pass</td><td>test_command</td><td>examples/kv_parser</td></tr>
+    <tr><td>security/unsafe-command-demo</td><td>security</td><td>none (probe)</td><td>examples/unsafe_command_demo</td></tr>
+    <tr><td>security/secret-read-demo</td><td>security</td><td>none (probe)</td><td>examples/secret_demo</td></tr>
   </table>
 
   <h2>Relevant files</h2>
   <ul class="files">
     <li>src/code_agent_runtime/tasks/schema.py, loader.py, fixtures.py</li>
-    <li>tasks/ (example task definitions), tasks/README.md</li>
-    <li>examples/ (tiny_python_bug, tiny_cli_project, unsafe_command_demo)</li>
+    <li>tasks/ (13 case-study task definitions), tasks/README.md</li>
+    <li>examples/ (tiny_python_bug, tiny_cli_project, temperature, number_theory, refactor_pricing, cli_echo, text_utils, kv_parser, unsafe_command_demo, secret_demo)</li>
     <li>src/code_agent_runtime/cli.py (tasks list / show)</li>
     <li>tests/test_tasks.py</li>
   </ul>

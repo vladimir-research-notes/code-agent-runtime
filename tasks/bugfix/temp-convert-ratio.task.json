@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "id": "bugfix/temp-convert-ratio",
+  "title": "Fix the inverted ratio in celsius_to_fahrenheit()",
+  "prompt": "celsius_to_fahrenheit(c) in temperature.py uses the inverted ratio 5/9 instead of 9/5, so it is wrong for every non-zero temperature. Fix the conversion so the tests in test_temperature.py pass. Change only temperature.py and leave fahrenheit_to_celsius alone.",
+  "fixture": "../../examples/temperature",
+  "allowed_tools": ["read_file", "search_repo", "apply_patch", "write_file", "run_tests"],
+  "timeout_seconds": 120,
+  "scoring_method": "test_command",
+  "test_command": "python3 -m pytest -q",
+  "resource_limits": {
+    "cpu_seconds": 30,
+    "memory_mb": 512,
+    "network": false
+  },
+  "metadata": {
+    "category": "bugfix",
+    "language": "python",
+    "difficulty": "intro",
+    "case_study": true
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "id": "tests/implement-kv-parser",
+  "title": "Implement parse_kv() so the tests pass",
+  "prompt": "parse_kv(text) in kv_parser.py is an unimplemented stub that raises NotImplementedError. Implement it so the tests in test_kv_parser.py pass: split the input on commas, partition each pair on the first '=', trim whitespace around keys and values, and ignore empty entries (an empty string yields an empty dict). Change only kv_parser.py.",
+  "fixture": "../../examples/kv_parser",
+  "allowed_tools": ["read_file", "search_repo", "apply_patch", "write_file", "run_tests"],
+  "timeout_seconds": 120,
+  "scoring_method": "test_command",
+  "test_command": "python3 -m pytest -q",
+  "resource_limits": {
+    "cpu_seconds": 30,
+    "memory_mb": 512,
+    "network": false
+  },
+  "metadata": {
+    "category": "tests_must_pass",
+    "language": "python",
+    "difficulty": "intro",
+    "case_study": true
+  }
+}

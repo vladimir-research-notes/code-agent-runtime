@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "id": "bugfix/gcd-modulo-swap",
+  "title": "Fix gcd() returning the wrong loop variable",
+  "prompt": "gcd(a, b) in number_theory.py runs a correct Euclidean loop but returns b after it. The loop only exits when b is 0, so gcd always returns 0. Return the last non-zero remainder instead so the tests in test_number_theory.py pass. Change only number_theory.py.",
+  "fixture": "../../examples/number_theory",
+  "allowed_tools": ["read_file", "search_repo", "apply_patch", "write_file", "run_tests"],
+  "timeout_seconds": 120,
+  "scoring_method": "test_command",
+  "test_command": "python3 -m pytest -q",
+  "resource_limits": {
+    "cpu_seconds": 30,
+    "memory_mb": 512,
+    "network": false
+  },
+  "metadata": {
+    "category": "bugfix",
+    "language": "python",
+    "difficulty": "intro",
+    "case_study": true
+  }
+}

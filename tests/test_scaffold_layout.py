@@ -113,3 +113,7 @@ def test_milestone_notes_present() -> None:
     assert (DOCS_DIR / "milestones" / "11-claude-code-importer.md").is_file()
     assert (DOCS_DIR / "commits" / "11-claude-code-importer.md").is_file()
     assert (DOCS_DIR / "review_notes" / "11-claude-code-importer-human-review.md").is_file()
+    # Milestone 12 artifacts.
+    assert (DOCS_DIR / "milestones" / "12-case-study.md").is_file()
+    assert (DOCS_DIR / "commits" / "12-case-study.md").is_file()
+    assert (DOCS_DIR / "review_notes" / "12-case-study-human-review.md").is_file()

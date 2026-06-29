@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "id": "tests/implement-slugify",
+  "title": "Implement slugify() so the tests pass",
+  "prompt": "slugify(text) in slugify.py is an unimplemented stub that raises NotImplementedError. Implement it so the tests in test_slugify.py pass: lower-case the text, split on runs of whitespace, and join the words with single hyphens. Change only slugify.py.",
+  "fixture": "../../examples/text_utils",
+  "allowed_tools": ["read_file", "search_repo", "apply_patch", "write_file", "run_tests"],
+  "timeout_seconds": 120,
+  "scoring_method": "test_command",
+  "test_command": "python3 -m pytest -q",
+  "resource_limits": {
+    "cpu_seconds": 30,
+    "memory_mb": 512,
+    "network": false
+  },
+  "metadata": {
+    "category": "tests_must_pass",
+    "language": "python",
+    "difficulty": "intro",
+    "case_study": true
+  }
+}

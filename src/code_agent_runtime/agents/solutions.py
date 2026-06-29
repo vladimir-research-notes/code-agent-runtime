@@ -70,6 +70,111 @@ if __name__ == "__main__":
 '''
 
 
+#: Corrected ``echo.py`` for the ``cli/add-reverse-flag`` task: adds an optional
+#: ``--reverse`` flag and the matching ``render`` parameter while keeping the
+#: default behaviour unchanged.
+_ECHO_WITH_REVERSE = '''\
+"""A tiny echo CLI (task fixture).
+
+The ``cli/add-reverse-flag`` task adds an optional ``--reverse`` flag (and the
+matching ``render`` parameter) while keeping the default behaviour unchanged.
+"""
+
+from __future__ import annotations
+
+import argparse
+from collections.abc import Sequence
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="echo", description="Echo text.")
+    parser.add_argument("text", help="text to echo")
+    parser.add_argument(
+        "--reverse", action="store_true", help="print the text reversed"
+    )
+    return parser
+
+
+def render(text: str, reverse: bool = False) -> str:
+    """Return the text to print; reversed when ``reverse`` is set."""
+    return text[::-1] if reverse else text
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    print(render(args.text, reverse=args.reverse))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+'''
+
+#: Refactored ``pricing.py`` for ``refactor/extract-rate-constant``: the duplicated
+#: ``0.07`` literal is replaced by a single module-level constant, behaviour
+#: unchanged.
+_PRICING_WITH_CONSTANT = '''\
+"""Pricing helpers (task fixture).
+
+The ``refactor/extract-rate-constant`` task extracts the duplicated tax rate into
+a single named constant without changing behaviour.
+"""
+
+from __future__ import annotations
+
+TAX_RATE = 0.07
+
+
+def tax_for(amount: float) -> float:
+    """Return the tax owed on ``amount``."""
+    return amount * TAX_RATE
+
+
+def price_with_tax(amount: float) -> float:
+    """Return ``amount`` plus its tax."""
+    return amount + amount * TAX_RATE
+'''
+
+#: Implemented ``slugify.py`` for ``tests/implement-slugify``.
+_SLUGIFY_IMPL = '''\
+"""A slugify helper (task fixture).
+
+Implements the ``tests/implement-slugify`` task: lower-case the text, split on
+runs of whitespace, and join the words with single hyphens.
+"""
+
+from __future__ import annotations
+
+
+def slugify(text: str) -> str:
+    """Return a hyphenated, lower-cased slug of ``text``."""
+    return "-".join(text.lower().split())
+'''
+
+#: Implemented ``kv_parser.py`` for ``tests/implement-kv-parser``.
+_KV_PARSER_IMPL = '''\
+"""A key/value parser (task fixture).
+
+Implements the ``tests/implement-kv-parser`` task: split on commas, partition each
+pair on the first ``=``, trim whitespace, and ignore empty entries.
+"""
+
+from __future__ import annotations
+
+
+def parse_kv(text: str) -> dict[str, str]:
+    """Parse ``"a=1, b=2"`` into ``{"a": "1", "b": "2"}``."""
+    result: dict[str, str] = {}
+    for pair in text.split(","):
+        pair = pair.strip()
+        if not pair:
+            continue
+        key, _, value = pair.partition("=")
+        result[key.strip()] = value.strip()
+    return result
+'''
+
+
 def _unified_diff(rel_path: str, before: str, after: str) -> str:
     """Build a unified diff with ``a/``/``b/`` headers that ``apply_patch`` reads."""
     return "".join(
@@ -112,6 +217,52 @@ def _solution_add_shout(task: Task) -> list[ToolCall]:
     ]
 
 
+def _replace_solution(
+    rel_path: str, old: str, new: str, *, search: str | None = None
+) -> Callable[[Task], list[ToolCall]]:
+    """Build a one-edit solution that ``read``s a file and ``apply_patch``es a
+    single in-place substring replacement.
+
+    The patch is computed from the *fixture's* current contents (the prepared
+    workspace is a copy of it, so the context matches). If ``old`` is not found,
+    the builder fails loudly rather than emitting an empty patch — a guard against
+    fixture drift. An optional ``search`` query inserts a ``search_repo`` step, so
+    the replayed plan reads as locate → inspect → edit.
+    """
+
+    def builder(task: Task) -> list[ToolCall]:
+        before = _read_fixture_file(task, rel_path)
+        after = before.replace(old, new)
+        if after == before:
+            raise ValueError(
+                f"scripted solution could not locate {old!r} in fixture file {rel_path!r}"
+            )
+        patch = _unified_diff(rel_path, before, after)
+        calls = [ToolCall("read_file", {"path": rel_path})]
+        if search is not None:
+            calls.append(ToolCall("search_repo", {"query": search}))
+        calls.append(ToolCall("apply_patch", {"patch": patch}))
+        return calls
+
+    return builder
+
+
+def _write_solution(rel_path: str, content: str) -> Callable[[Task], list[ToolCall]]:
+    """Build a solution that ``read``s a file and ``write_file``s a full rewrite.
+
+    Used where the change adds structure (new parameters, a constant, a whole
+    implementation) rather than editing one line, mirroring ``_solution_add_shout``.
+    """
+
+    def builder(_task: Task) -> list[ToolCall]:
+        return [
+            ToolCall("read_file", {"path": rel_path}),
+            ToolCall("write_file", {"path": rel_path, "content": content}),
+        ]
+
+    return builder
+
+
 #: Task id → builder. A builder takes the validated task and returns the tool
 #: calls a scripted agent should replay to solve it. Because a builder works from
 #: the task's *fixture* (not its id), one builder serves every task over the same
@@ -123,6 +274,23 @@ SOLUTIONS: dict[str, Callable[[Task], list[ToolCall]]] = {
     "refactor/sum-range-diff-scope": _solution_sum_range,
     "cli/add-shout-flag": _solution_add_shout,
     "cli/add-shout-flag-custom": _solution_add_shout,
+    # Milestone 12 case-study tasks.
+    "bugfix/temp-convert-ratio": _replace_solution(
+        "temperature.py",
+        "return c * 5 / 9 + 32  # BUG: should be c * 9 / 5 + 32",
+        "return c * 9 / 5 + 32",
+        search="5 / 9",
+    ),
+    "bugfix/gcd-modulo-swap": _replace_solution(
+        "number_theory.py",
+        "return b  # BUG: loop ends with b == 0; should return a",
+        "return a",
+        search="return b",
+    ),
+    "refactor/extract-rate-constant": _write_solution("pricing.py", _PRICING_WITH_CONSTANT),
+    "cli/add-reverse-flag": _write_solution("echo.py", _ECHO_WITH_REVERSE),
+    "tests/implement-slugify": _write_solution("slugify.py", _SLUGIFY_IMPL),
+    "tests/implement-kv-parser": _write_solution("kv_parser.py", _KV_PARSER_IMPL),
 }
 
 
