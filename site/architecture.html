@@ -26,7 +26,7 @@
 <main>
   <h1>Architecture</h1>
   <p class="lede">How a versioned task and an agent become a scored, replayable trace.</p>
-  <p><span class="status scaffold">status: Milestone 6 — tasks, tools, the runtime loop, structured tracing, and trace replay implemented; sandbox pending</span></p>
+  <p><span class="status scaffold">status: Milestone 7 — tasks, tools, the runtime loop, structured tracing, trace replay, and sandbox controls implemented; full scoring pending</span></p>
 
   <h2>Brief explanation</h2>
   <p>The runtime is an explicit pipeline. Each stage has a clear input and output so that
@@ -90,9 +90,9 @@
     <tr><td>score</td><td><code>test_command</code> → pass/fail; <code>none</code> → not scored</td></tr>
     <tr><td>report</td><td>build the <code>RunResult</code>; render text or JSON</td></tr>
   </table>
-  <p>Containment here is workspace confinement plus capability gating only — there is no
-  process isolation, resource limit, or network policy yet (that is the sandbox, Milestone 7).
-  Scoring is intentionally minimal; the full scorer, suite runner, and reports are Milestone 8.</p>
+  <p>Containment is workspace confinement, <code>allowed_tools</code> capability gating, and the
+  Milestone 7 sandbox policy (see below) — but no process/namespace isolation. Scoring is
+  intentionally minimal; the full scorer, suite runner, and reports are Milestone 8.</p>
 
   <h2>Trace recorder (Milestone 5)</h2>
   <p>A run can be recorded as a structured, JSON-serialisable <code>Trace</code> with two
@@ -123,6 +123,22 @@
   <code>trace_to_markdown</code> (a Markdown report) — exposed as <code>trace show</code> and
   <code>trace report</code>. Replay is pure: data in, strings out, no subprocess or network.</p>
 
+  <h2>Sandbox (Milestone 7)</h2>
+  <p>The sandbox is the <strong>policy</strong> layer over the tools' <strong>mechanism</strong>.
+  A <code>SandboxPolicy</code> declares allowed/denied read &amp; write path globs, a command
+  allow/denylist, a network flag, and runtime/output caps; a <code>Sandbox</code> enforces it on
+  every <em>agent</em> tool call. <code>check_call</code> runs <strong>before</strong> dispatch —
+  it extracts the path(s) a path tool would touch (<code>apply_patch</code> targets are parsed from
+  the patch) or the program an exec tool would run, and returns an allow/deny <code>PolicyDecision</code>;
+  a denied call is recorded as a <code>"blocked"</code> step and never executes.
+  <code>redact_result</code> runs <strong>after</strong> — it scrubs credential-shaped output
+  (file contents, stdout/stderr, diffs) using the same patterns as the commit-time hygiene scanner,
+  so a captured secret never reaches a step, a trace, or the agent's next observation. Enforcement
+  is on by default (<code>RunConfig.enforce_sandbox</code>) with permissive, task-derived defaults,
+  and the effective policy is echoed into the <code>RunResult</code>. This reduces blast radius and
+  adds observability — it is <strong>not</strong> a jail (program-name command matching, heuristic
+  network denylist, no process/namespace isolation). See <a href="sandboxing.html">Sandboxing</a>.</p>
+
   <h2>Current implementation status</h2>
   <ul>
     <li>Package scaffold and CLI — done.</li>
@@ -131,7 +147,8 @@
     <li>Runtime loop with mock/scripted agents and a <code>run</code> CLI (Milestone 4) — done.</li>
     <li>Structured run tracing with an opt-in recorder and <code>run --trace</code> (Milestone 5) — done.</li>
     <li>Trace replay/summarise with <code>trace show</code> / <code>trace report</code> (Milestone 6) — done.</li>
-    <li>Sandbox, full scoring, reports, adapters — pending.</li>
+    <li>Permission policies and sandbox controls, enforced by default, with secret redaction (Milestone 7) — done.</li>
+    <li>Full scoring, reports, adapters — pending.</li>
   </ul>
 
   <h2>Relevant files</h2>
@@ -143,7 +160,9 @@
     <li>src/code_agent_runtime/agents/ (base, mock, scripted, solutions)</li>
     <li>src/code_agent_runtime/runtime/ (state, execution, agent_loop, report)</li>
     <li>src/code_agent_runtime/traces/ (schema, recorder, store, replay, summarize)</li>
-    <li>tests/test_tools.py, tests/test_runtime.py, tests/test_traces.py, tests/test_replay.py</li>
+    <li>src/code_agent_runtime/sandbox/ (policy, permissions, secret_scanner)</li>
+    <li>src/code_agent_runtime/agents/probes.py (the unsafe probe agent)</li>
+    <li>tests/test_tools.py, tests/test_runtime.py, tests/test_traces.py, tests/test_replay.py, tests/test_sandbox.py</li>
     <li>docs/PLAN.md</li>
   </ul>
 
@@ -157,9 +176,10 @@
 
   <h2>Open questions / limitations</h2>
   <ul>
-    <li>The runtime provides <strong>workspace confinement and capability gating only</strong>
-      — no process isolation, resource limits, or network policy yet. That is Milestone 7
-      (sandbox).</li>
+    <li>The runtime enforces workspace confinement, capability gating, and the Milestone 7
+      <strong>sandbox policy</strong> (path/command/network gating, runtime/output caps, secret
+      redaction) — but <strong>not</strong> process/namespace isolation. Command matching is by
+      program name and network enforcement is heuristic; a containerized runner is a future option.</li>
     <li>Scoring covers <code>test_command</code> and <code>none</code> only; the other methods
       and the suite/regression machinery are Milestone 8.</li>
     <li><code>apply_patch</code> applies exact-context unified diffs (no fuzzy matching, no

@@ -26,7 +26,7 @@
 <main>
   <h1>Security model</h1>
   <p class="lede">Honest framing: this is not a production-grade sandbox.</p>
-  <p><span class="status scaffold">status: threat model documented; repo hygiene scanner live (M1); runtime controls planned (M7)</span></p>
+  <p><span class="status scaffold">status: threat model documented; repo hygiene scanner live (M1); runtime sandbox controls live (M7)</span></p>
 
   <div class="callout">A capable adversary, or an agent running with broad host permissions,
   can escape the controls described here. The goal is blast-radius reduction and
@@ -52,33 +52,41 @@
   </ul>
 
   <h2>Current implementation status</h2>
-  <p>Runtime containment is not implemented yet. Today's guards are repo-level:
-  <code>.gitignore</code> and <code>.claude/settings.json</code> deny rules, the
-  no-secrets-committed operating principle, and — as of Milestone 1 — an automated
-  <strong>repository hygiene scanner</strong>. It inspects git-tracked files for
-  secrets, virtualenvs, caches, <code>node_modules</code>, large files, result blobs,
-  model weights, and a committed <code>.claude/settings.local.json</code>, with text
-  and JSON output and an exit code suitable for a pre-commit gate. Secret detection is
-  best-effort and heuristic — see <a href="limitations.html">Limitations</a>.</p>
+  <p>Two layers of control are live. <strong>Runtime containment (Milestone 7)</strong>: a
+  <code>SandboxPolicy</code> + <code>Sandbox</code> enforced by default on every agent tool call —
+  allowed/denied read &amp; write paths, command allow/denylist, a network flag (default off,
+  enforced by denying known network programs), runtime/output caps, and a secret scanner that
+  redacts credential-shaped output before it lands in a trace. See <a href="sandboxing.html">Sandboxing</a>.
+  <strong>Commit-time hygiene (Milestone 1)</strong>: the <code>.gitignore</code> /
+  <code>.claude/settings.json</code> deny rules, the no-secrets-committed principle, and the
+  <strong>repository hygiene scanner</strong> that flags secrets, virtualenvs, caches,
+  <code>node_modules</code>, large files, result blobs, model weights, and a committed
+  <code>.claude/settings.local.json</code>. Both the runtime redactor and the commit-time scanner
+  use the <em>same</em> heuristic secret patterns. This is <strong>not</strong> a jail — command
+  matching is by program name, network enforcement is heuristic, and there is no process/namespace
+  isolation — see <a href="limitations.html">Limitations</a>.</p>
 
   <h2>Relevant files</h2>
   <ul class="files">
     <li>docs/SECURITY_MODEL.md</li>
+    <li>src/code_agent_runtime/sandbox/ (policy, permissions, secret_scanner)</li>
     <li>src/code_agent_runtime/hygiene.py, src/code_agent_runtime/environment.py</li>
     <li>scripts/00_check_environment.py, scripts/04_check_repo_hygiene.py</li>
     <li>.gitignore, .claude/settings.json</li>
-    <li>src/code_agent_runtime/sandbox/ (planned)</li>
+    <li>tests/test_sandbox.py, tests/test_hygiene.py</li>
   </ul>
 
   <h2>Current test/result status</h2>
-  <p>Hygiene and environment checks are covered by CPU-only tests, including a guard
-  that scans the committed tree and asserts it is clean. Runtime-containment tests
-  (blocked-vs-allowed on unsafe demos) arrive with Milestone 7.</p>
+  <p>CPU-only tests cover both layers: <code>tests/test_sandbox.py</code> asserts blocked-vs-allowed
+  behaviour on the unsafe-command demo (every host-escaping action blocked with its rule, the benign
+  read allowed) and the secret redactor; <code>tests/test_hygiene.py</code> covers the commit-time
+  scanner, including a guard that scans the committed tree and asserts it is clean.</p>
 
   <h2>Open questions / limitations</h2>
   <ul>
-    <li>How much isolation is achievable without containers or root?</li>
-    <li>What is the right default network posture?</li>
+    <li>How much isolation is achievable without containers or root? (Today: none beyond policy + workspace confinement.)</li>
+    <li>What is the right default network posture for scripted vs. LLM agents?</li>
+    <li>Should the command policy move from program-name matching to an executed-path allowlist?</li>
   </ul>
 </main>
 <footer class="site">Code Agent Runtime — research/engineering scaffold. Built milestone by milestone.</footer>

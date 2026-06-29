@@ -14,11 +14,15 @@ Public API:
   workspace primitives.
 - :func:`format_run_report` — a concise text summary of a run.
 
-Containment here is workspace confinement plus ``allowed_tools`` gating only; the
-full sandbox (process/resource/network policy, secret scanning) is Milestone 7.
-Full scoring and suite reports are Milestone 8. Structured tracing (Milestone 5)
-is opt-in: pass ``recorder=`` to :func:`run_task` (see
-:mod:`code_agent_runtime.traces`); an untraced run is unchanged.
+Containment is workspace confinement, ``allowed_tools`` capability gating, and the
+Milestone 7 sandbox policy (allowed/denied paths, command allow/deny, network
+flag, runtime/output caps, and secret redaction) — enforced on every agent tool
+call when ``RunConfig.enforce_sandbox`` is on (the default); see
+:mod:`code_agent_runtime.sandbox`. There is no process/namespace isolation (a
+containerised runner is a documented non-goal for now). Full scoring and suite
+reports are Milestone 8. Structured tracing (Milestone 5) is opt-in: pass
+``recorder=`` to :func:`run_task` (see :mod:`code_agent_runtime.traces`); an
+untraced run is unchanged.
 """
 
 from __future__ import annotations

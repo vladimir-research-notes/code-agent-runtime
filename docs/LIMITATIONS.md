@@ -1,6 +1,6 @@
 # Limitations and non-goals
 
-> **Status:** current as of Milestone 5. Updated at every milestone.
+> **Status:** current as of Milestone 7. Updated at every milestone.
 
 ## What is true today
 
@@ -11,23 +11,30 @@
 - A **versioned task format** (schema, loader, example tasks, `tasks` CLI;
   Milestone 2), a **tool registry** with seven structured core tools (`tools`
   CLI; Milestone 3), a **runtime loop** that drives mock/scripted agents over a
-  task (`run` CLI; Milestone 4), and **structured run tracing** (a JSON `Trace`
-  schema, an opt-in recorder, and `run --trace`; Milestone 5) are implemented.
-- Sandbox enforcement, replay tooling, full scoring, reports, and model adapters
-  are **not** implemented yet.
+  task (`run` CLI; Milestone 4), **structured run tracing** (a JSON `Trace`
+  schema, an opt-in recorder, and `run --trace`; Milestone 5), **trace
+  replay/debugging tooling** (`trace show` / `trace report`; Milestone 6), and
+  **permission policies and sandbox controls** (a `SandboxPolicy` enforced on
+  every agent tool call, with output redaction; Milestone 7) are implemented.
+- Full scoring, reports, and model adapters are **not** implemented yet.
 
 ## Known limitations
 
-- **No sandbox.** There is no enforced runtime isolation; see
-  [`SECURITY_MODEL.md`](SECURITY_MODEL.md). The hygiene scanner is a
-  commit-time guard, not a runtime control. The runtime provides only workspace
-  confinement and `allowed_tools` capability gating — no process isolation,
-  resource limits, or network policy yet (Milestone 7).
-- **Traces are not redacted.** A recorded trace stores command stdout/stderr as
-  captured, so it may contain whatever a command printed (including secrets).
-  Persisting traces of untrusted commands to a shared location is unsafe until
-  the secret scanner lands (Milestone 7). The default `--trace` destination
-  (`traces/`) is gitignored to avoid accidental commits.
+- **The sandbox is not a jail.** A `SandboxPolicy` is enforced on every agent tool
+  call by default (allowed/denied paths, command allow/denylist, network flag,
+  runtime/output caps) — see [`SECURITY_MODEL.md`](SECURITY_MODEL.md) — but it
+  reduces blast radius, it does not contain malicious native code. Command matching
+  is by program *name* (a renamed binary or absolute path to a copy is not caught);
+  network enforcement is a heuristic denylist (a direct socket open is not blocked);
+  there is **no** process/namespace isolation (a containerized runner is a future,
+  optional capability); and `cpu_seconds` is enforced as a wall-clock bound. The
+  hygiene scanner remains a separate commit-time guard.
+- **Trace redaction is heuristic.** With the sandbox enabled (the default), command
+  stdout/stderr, file contents, and diffs are scrubbed of credential-shaped strings
+  before they enter a trace, using the same high-precision patterns as the hygiene
+  scanner — so redaction can miss novel or obfuscated secrets and does not detect
+  non-secret sensitive data. With `--no-sandbox` no redaction occurs. The default
+  `--trace` destination (`traces/`) is gitignored to avoid accidental commits.
 - **Production trace timestamps are non-deterministic.** The recorder reads the
   real wall/monotonic clock by default (intended); tests inject a fake clock for
   reproducibility.
@@ -65,4 +72,5 @@ trace artifacts, result tables, or an explicit statement of a limitation.
 ## Relevant files
 
 - `docs/PLAN.md`, `docs/SECURITY_MODEL.md`, `docs/RESULTS.md`
+- `src/code_agent_runtime/sandbox/` (policy, permissions, secret_scanner)
 - `src/code_agent_runtime/hygiene.py`, `src/code_agent_runtime/environment.py`

@@ -4,9 +4,11 @@ The CLI is intentionally minimal at this stage. It exposes version/status
 commands, the Milestone 1 operational checks (``env-check``, ``hygiene``), the
 Milestone 2 task tools (``tasks list`` / ``tasks show``), the Milestone 3 tool
 registry (``tools list`` / ``tools show``), the Milestone 4 runtime (``run``)
-with optional Milestone 5 trace recording (``run --trace``), and the Milestone 6
-trace inspection/replay tooling (``trace show`` / ``trace report``). Full scoring
-and suite reporting subcommands are added in later milestones (see
+with optional Milestone 5 trace recording (``run --trace``), the Milestone 6
+trace inspection/replay tooling (``trace show`` / ``trace report``), and the
+Milestone 7 sandbox controls (enforced by default on ``run``, with
+``run --no-sandbox`` to disable and ``run --agent probe`` to exercise them). Full
+scoring and suite reporting subcommands are added in later milestones (see
 ``docs/PLAN.md``).
 """
 
@@ -30,8 +32,8 @@ from . import traces as _traces
 
 # The milestone the runtime currently implements. Kept here so ``info`` can
 # report honest project status without scanning the filesystem.
-CURRENT_MILESTONE = "Milestone 6 — Replay and debugging tools"
-NEXT_MILESTONE = "Milestone 7 — Permission policies and sandbox controls"
+CURRENT_MILESTONE = "Milestone 7 — Permission policies and sandbox controls"
+NEXT_MILESTONE = "Milestone 8 — Scoring and evaluation reports"
 
 #: Default directory the ``tasks`` subcommands scan.
 DEFAULT_TASKS_DIR = "tasks"
@@ -161,9 +163,18 @@ def _add_run_parser(subparsers: argparse._SubParsersAction) -> None:
     )
     p_run.add_argument(
         "--agent",
-        choices=["mock", "scripted"],
+        choices=["mock", "scripted", "probe"],
         default="scripted",
-        help="Which deterministic agent to run (default: scripted).",
+        help=(
+            "Which deterministic agent to run (default: scripted). 'probe' replays "
+            "an adversarial sandbox probe (only for tasks that define one, e.g. "
+            "security/unsafe-command-demo)."
+        ),
+    )
+    p_run.add_argument(
+        "--no-sandbox",
+        action="store_true",
+        help="Disable sandbox-policy enforcement (use pure allowed_tools gating).",
     )
     p_run.add_argument(
         "--max-steps",
@@ -417,6 +428,12 @@ def _cmd_run(args: argparse.Namespace) -> int:
 
     if args.agent == "mock":
         agent: _agents.Agent = _agents.MockAgent()
+    elif args.agent == "probe":
+        try:
+            agent = _agents.build_unsafe_probe_agent(task)
+        except KeyError as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
     else:
         try:
             agent = _agents.build_scripted_agent(task)
@@ -428,6 +445,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
         max_steps=args.max_steps,
         run_tests=not args.no_tests,
         keep_workspace=args.keep_workspace,
+        enforce_sandbox=not args.no_sandbox,
     )
 
     trace = None

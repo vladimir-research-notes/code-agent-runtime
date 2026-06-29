@@ -7,9 +7,9 @@ run tests, score, report — and returns a single structured :class:`RunResult`.
 Design choices:
 
 - **The runtime owns side effects.** Agents only *propose*; the loop prepares the
-  workspace, gates each call against ``allowed_tools``, dispatches it, runs the
-  task's test command, and captures the final diff. This keeps a run reproducible
-  regardless of which agent produced it.
+  workspace, gates each call against ``allowed_tools`` and the sandbox policy
+  (Milestone 7), dispatches it, runs the task's test command, and captures the
+  final diff. This keeps a run reproducible regardless of which agent produced it.
 - **Tests and diff are runtime-driven, not agent actions.** ``run_tests`` and
   ``git_diff`` are issued by the loop through the full registry, so they work
   even when the task does not grant those tools to the agent; they do not count
@@ -33,6 +33,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from ..agents import Agent, Observation
+from ..sandbox import Sandbox, SandboxPolicy
 from ..tasks import Task
 from ..tools import ToolResult, build_registry
 from .execution import (
@@ -56,6 +57,7 @@ def run_task(
     registry=None,
     workspace_dest=None,
     recorder=None,
+    policy: SandboxPolicy | None = None,
 ) -> RunResult:
     """Run ``agent`` against ``task`` and return a structured :class:`RunResult`.
 
@@ -69,10 +71,22 @@ def run_task(
     timestamped event at each stage and ``recorder.finish(result)`` is called
     before returning, so ``recorder.trace`` holds the complete trace. When
     ``None``, tracing is skipped entirely and the run is byte-for-byte unchanged.
+
+    ``policy`` is the Milestone 7 :class:`~code_agent_runtime.sandbox.SandboxPolicy`
+    enforced on every *agent* tool call (path/command/network gating plus output
+    redaction). It defaults to :meth:`SandboxPolicy.from_task`. Enforcement is
+    governed by ``config.enforce_sandbox`` (on by default); when off, the run uses
+    pure ``allowed_tools`` gating and no redaction. The runtime-driven test and
+    diff commands are issued by the loop itself, not by the agent, so they are not
+    policy-gated — but their captured output **is** redacted when a policy is
+    active, so a secret a test surfaces never lands unredacted in the trace.
     """
     config = config or RunConfig()
     registry = registry or build_registry()
     allowed = frozenset(task.allowed_tools)
+    effective_policy = policy or SandboxPolicy.from_task(task)
+    sandbox = Sandbox(effective_policy) if config.enforce_sandbox else None
+    policy_dict = effective_policy.to_dict() if sandbox is not None else None
 
     steps: list[StepRecord] = []
     phase = RunPhase.PREPARING
@@ -89,7 +103,12 @@ def run_task(
         )
         if recorder is not None:
             recorder.workspace_prepared(workspace)
-        ctx = make_context(task, workspace, tool_timeout_seconds=config.tool_timeout_seconds)
+        ctx = make_context(
+            task,
+            workspace,
+            tool_timeout_seconds=config.tool_timeout_seconds,
+            policy=effective_policy if sandbox is not None else None,
+        )
 
         # --- agent loop ----------------------------------------------------
         phase = RunPhase.AGENT_LOOP
@@ -118,7 +137,9 @@ def run_task(
                 break
             call = action.call
             assert call is not None  # AgentAction invariant: non-finish ⇒ has a call
-            result, was_allowed = dispatch_agent_call(registry, allowed, call, ctx)
+            result, was_allowed = dispatch_agent_call(
+                registry, allowed, call, ctx, sandbox=sandbox
+            )
             steps.append(
                 StepRecord(
                     index=index,
@@ -144,6 +165,11 @@ def run_task(
                 command=list(task.test_command),
                 timeout_seconds=config.tool_timeout_seconds,
             )
+            # The test command is runtime-issued (not policy-gated), but its
+            # captured output is still scrubbed so a secret it prints never lands
+            # unredacted in the trace.
+            if sandbox is not None:
+                test_result = sandbox.redact_result(test_result)
             tests_data = test_result.data
             if recorder is not None:
                 recorder.tests_ran(test_result)
@@ -152,6 +178,8 @@ def run_task(
         if workspace.git:
             phase = RunPhase.CAPTURING_DIFF
             diff_result = registry.get("git_diff").run(ctx)
+            if sandbox is not None:
+                diff_result = sandbox.redact_result(diff_result)
             if diff_result.ok:
                 diff_data = diff_result.data
                 if recorder is not None:
@@ -175,13 +203,14 @@ def run_task(
             stop_reason=stop_reason,
             phase_reached=RunPhase.DONE,
             config=config,
+            policy=policy_dict,
         )
         return _finish_trace(recorder, result)
     except WorkspaceError as exc:
-        result = _error_result(task, agent, steps, str(exc), phase, workspace, config)
+        result = _error_result(task, agent, steps, str(exc), phase, workspace, config, policy_dict)
         return _finish_trace(recorder, result)
     except Exception as exc:  # pragma: no cover - defensive; surfaced, not swallowed
-        result = _error_result(task, agent, steps, repr(exc), phase, workspace, config)
+        result = _error_result(task, agent, steps, repr(exc), phase, workspace, config, policy_dict)
         return _finish_trace(recorder, result)
     finally:
         if workspace is not None and not config.keep_workspace:
@@ -252,6 +281,7 @@ def _build_result(
     stop_reason: str,
     phase_reached: str,
     config: RunConfig,
+    policy: Mapping[str, Any] | None = None,
 ) -> RunResult:
     tool_calls, commands = _counts(steps)
     return RunResult(
@@ -269,6 +299,7 @@ def _build_result(
         workspace=str(workspace.root),
         kept_workspace=config.keep_workspace,
         git=workspace.git,
+        policy=policy,
     )
 
 
@@ -280,6 +311,7 @@ def _error_result(
     phase: str,
     workspace: Workspace | None,
     config: RunConfig,
+    policy: Mapping[str, Any] | None = None,
 ) -> RunResult:
     tool_calls, commands = _counts(steps)
     return RunResult(
@@ -303,4 +335,5 @@ def _error_result(
         kept_workspace=config.keep_workspace,
         git=workspace.git if workspace is not None else False,
         error=error,
+        policy=policy,
     )

@@ -26,52 +26,81 @@
 <main>
   <h1>Sandboxing</h1>
   <p class="lede">Blast-radius reduction and observability for semi-trusted agents.</p>
-  <p><span class="status scaffold">status: planned (Milestone 7) — not implemented yet</span></p>
+  <p><span class="status scaffold">status: Milestone 7 — implemented; enforced by default on every run</span></p>
 
   <div class="callout">This is <strong>not</strong> a production-grade sandbox. The goal is to
   reduce accidental damage and make actions observable — not to contain malicious native code.
-  See <a href="security.html">Security</a>.</div>
+  Command matching is by program name, network enforcement is a heuristic denylist, and there is
+  <strong>no</strong> process/namespace isolation. See <a href="security.html">Security</a>.</div>
 
   <h2>Brief explanation</h2>
-  <p>The sandbox decides what an agent is allowed to read, write, and run, and records what
-  it actually did. Tools execute; the sandbox enforces policy.</p>
+  <p>The sandbox is the <em>policy</em> layer over the tools' <em>mechanism</em>. A
+  <code>SandboxPolicy</code> declares what an agent may read, write, and run; a
+  <code>Sandbox</code> enforces it — gating each agent tool call <strong>before</strong> it runs
+  (a denied call never executes) and redacting credential-shaped output <strong>after</strong>.
+  It is enforced by default in the runtime loop, with permissive, task-derived defaults so
+  ordinary runs are unchanged.</p>
 
   <h2>Deeper technical explanation</h2>
-  <p>Planned containment primitives:</p>
-  <ul>
-    <li>Allowed read paths, allowed write paths, denied paths.</li>
-    <li>Command allowlist and denylist.</li>
-    <li>Network policy flag (default: no network).</li>
-    <li>Max runtime and max output size.</li>
-    <li>Secret scanner over inputs, outputs, and traces.</li>
-    <li>Optional containerized runner for stronger isolation.</li>
-  </ul>
-  <p>Unsafe examples (reading <code>.env</code>, reading <code>~/.aws/credentials</code>,
-  writing outside the workspace, a dangerous shell command) will demonstrate that blocked
-  actions are blocked while allowed actions still work.</p>
+  <p>Containment primitives (all implemented):</p>
+  <table>
+    <tr><th>Primitive</th><th>How it is enforced</th></tr>
+    <tr><td>allowed / denied read &amp; write paths</td><td>workspace-relative glob match per tool call; <code>denied_paths</code> (e.g. <code>.env</code>, <code>.git</code>, <code>.aws</code>, <code>*.pem</code>) wins over allow</td></tr>
+    <tr><td>command allowlist / denylist</td><td>match the program name (<code>argv[0]</code> basename); default denylist blocks <code>rm</code>, <code>sudo</code>, <code>dd</code>, <code>shutdown</code>, …</td></tr>
+    <tr><td>network policy flag</td><td>deny well-known network programs (<code>curl</code>, <code>wget</code>, <code>ssh</code>, …) when network is off (default)</td></tr>
+    <tr><td>max runtime / max output</td><td>wall-clock and byte caps applied through the <code>ToolContext</code></td></tr>
+    <tr><td>secret scanner</td><td>redact credential-shaped output (file contents, stdout/stderr, diffs) before it enters a step, a trace, or the agent's next observation</td></tr>
+  </table>
+  <p>The path/command extraction is explicit per tool: <code>read_file</code>/<code>write_file</code>
+  by their <code>path</code>, <code>apply_patch</code> by its parsed target paths, and
+  <code>run_shell</code>/<code>run_tests</code> by their command. A denied call is recorded as a
+  <code>"blocked"</code> step carrying the rule (e.g. <code>denied_path</code>,
+  <code>outside_workspace</code>, <code>command_denylist</code>, <code>network_denied</code>) — so
+  the trace shows exactly what was blocked and why.</p>
+
+  <h2>Unsafe demo (blocked vs. allowed)</h2>
+  <p>The built-in <strong>probe</strong> agent drives <code>security/unsafe-command-demo</code> and
+  attempts the actions a coding agent must never perform. Run it:</p>
+  <pre><code>code-agent-runtime run security/unsafe-command-demo --agent probe</code></pre>
+  <p>Under the default policy the sandbox blocks every one — reading <code>.env</code>
+  (<code>denied_path</code>), reading <code>~/.aws/credentials</code> and <code>/etc/shadow</code>
+  (<code>denied_path</code>/<code>outside_workspace</code>), writing outside the workspace
+  (<code>outside_workspace</code>), <code>rm -rf .</code> (<code>command_denylist</code>), and a
+  <code>curl</code> egress (<code>network_denied</code>) — while the benign read of
+  <code>app.py</code> still succeeds. Add <code>--no-sandbox</code> to disable enforcement.</p>
 
   <h2>Current implementation status</h2>
-  <p>Runtime containment is not implemented. Today's guards are repo-level:
-  <code>.gitignore</code> and <code>.claude/settings.json</code> deny rules, plus a
-  <strong>repository hygiene scanner</strong> (Milestone 1) that flags secrets and junk
-  in tracked files. That scanner is a commit-time guard, not a runtime sandbox — the
-  containment primitives above are still planned.</p>
+  <p>Implemented (Milestone 7). The <code>sandbox/</code> package defines <code>SandboxPolicy</code>
+  (and its default deny/allow vocabularies), the <code>Sandbox</code> enforcer (<code>check_call</code>
+  + <code>redact_result</code>), and a secret scanner that reuses the hygiene scanner's patterns.
+  The runtime enforces it on every agent tool call when <code>RunConfig.enforce_sandbox</code> is on
+  (the default) and echoes the effective policy into the <code>RunResult</code> and trace.
+  The repository hygiene scanner (Milestone 1) remains a separate commit-time guard.</p>
 
   <h2>Relevant files</h2>
   <ul class="files">
+    <li>src/code_agent_runtime/sandbox/policy.py (SandboxPolicy, default vocabularies)</li>
+    <li>src/code_agent_runtime/sandbox/permissions.py (Sandbox, PolicyDecision)</li>
+    <li>src/code_agent_runtime/sandbox/secret_scanner.py (redact_text, count_secrets)</li>
+    <li>src/code_agent_runtime/runtime/execution.py, runtime/agent_loop.py (enforcement)</li>
+    <li>src/code_agent_runtime/agents/probes.py (the unsafe probe agent)</li>
     <li>src/code_agent_runtime/hygiene.py (commit-hygiene guard, Milestone 1)</li>
-    <li>src/code_agent_runtime/sandbox/ (runtime controls, planned)</li>
-    <li>.gitignore, .claude/settings.json</li>
-    <li>docs/SECURITY_MODEL.md</li>
+    <li>docs/SECURITY_MODEL.md, tests/test_sandbox.py</li>
   </ul>
 
   <h2>Current test/result status</h2>
-  <p>No sandbox tests yet. Validation will assert blocked-vs-allowed behavior on unsafe demos.</p>
+  <p><code>tests/test_sandbox.py</code> (41 tests) covers the policy, the path/command matchers,
+  every <code>check_call</code> rule, the secret scanner, gated dispatch (a denied call does not run;
+  an allowed read is redacted), and the probe run end to end — every unsafe action blocked with the
+  expected rule, the benign read allowed, nothing escaping the workspace. No destructive command is
+  executed (the probe's <code>rm</code>/<code>curl</code> are blocked before dispatch).</p>
 
   <h2>Open questions / limitations</h2>
   <ul>
-    <li>How much isolation is achievable without containers or root?</li>
-    <li>Right default network posture for scripted vs. LLM agents.</li>
+    <li>Command matching is by program name; a renamed binary or absolute path to a copy is not caught.</li>
+    <li>Network enforcement is heuristic — a direct socket open (e.g. <code>python3 -c "import socket…"</code>) is not blocked.</li>
+    <li>No process/namespace isolation yet; a containerized runner for stronger isolation is a future, optional capability.</li>
+    <li><code>cpu_seconds</code> is enforced as a wall-clock bound, not true CPU time.</li>
   </ul>
 </main>
 <footer class="site">Code Agent Runtime — research/engineering scaffold. Built milestone by milestone.</footer>

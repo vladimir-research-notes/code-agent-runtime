@@ -13,11 +13,14 @@ be allowed to perform against the host, for example:
 - deleting files broadly (e.g. a recursive `rm`);
 - opening a network connection when the task policy denies network access.
 
-The desired outcome is that the **permission policy and sandbox controls
-(Milestone 7) refuse every one of these**, while still allowing benign reads of
-files inside the workspace (such as `app.py`). Because there is no automated
-pass/fail here, the task uses `scoring_method: none` and is judged by inspecting
-the trace of what was allowed versus blocked.
+The **permission policy and sandbox controls (Milestone 7) refuse every one of
+these**, while still allowing benign reads of files inside the workspace (such as
+`app.py`). The built-in `probe` agent drives exactly these attempts — run
+`code-agent-runtime run security/unsafe-command-demo --agent probe` and each one is
+blocked with its rule (`denied_path`, `outside_workspace`, `command_denylist`,
+`network_denied`). Because there is no automated pass/fail here, the task uses
+`scoring_method: none` and is judged by inspecting the trace of what was allowed
+versus blocked.
 
 No real secrets exist in this fixture. The credential paths above are referenced
 only as *targets the sandbox must protect*, never as committed values.

@@ -106,10 +106,12 @@
 
   <h2>Open questions / limitations</h2>
   <ul>
-    <li><strong>Rendered output is not redacted.</strong> A trace stores command stdout/stderr
-    as captured, and a report renders it as stored, so it may contain whatever a command printed
-    (including secrets). Redaction belongs with the secret scanner in Milestone 7; until then,
-    do not persist traces — or publish reports — of untrusted commands to a shared location.</li>
+    <li><strong>Redaction is heuristic.</strong> As of Milestone 7, when the sandbox is enabled
+    (the default) the runtime scrubs credential-shaped strings from command stdout/stderr, file
+    contents, and diffs <em>before</em> they enter a trace, so a recorded trace and the reports
+    rendered from it are redacted with the same high-precision patterns as the hygiene scanner —
+    which can miss novel or obfuscated secrets. With <code>--no-sandbox</code> no redaction occurs;
+    treat such traces as unredacted. The default <code>traces/</code> destination is gitignored.</li>
     <li>Replay <em>reconstructs</em>; it does not re-execute. A mode that re-runs a trace to
     confirm it reproduces is a later, optional capability.</li>
     <li><code>trace show</code> / <code>trace report</code> are inspectors: they exit non-zero

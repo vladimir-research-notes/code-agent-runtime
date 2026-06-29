@@ -136,6 +136,20 @@ class ApplyPatchTool(Tool):
 # --- parsing ---------------------------------------------------------------
 
 
+def patch_target_paths(patch_text: str) -> list[str]:
+    """Workspace-relative target paths a unified-diff patch would create/modify/delete.
+
+    Used by the sandbox (Milestone 7) to apply its path policy to ``apply_patch``
+    *before* the patch is applied. Returns ``[]`` for an unparseable patch — the
+    policy then defers to the tool, which reports the parse error itself — so this
+    never raises.
+    """
+    try:
+        return [fp.target for fp in _parse_unified_diff(patch_text)]
+    except ToolError:
+        return []
+
+
 def _strip_prefix(path: str) -> str | None:
     """Normalise a diff header path: drop a tab-timestamp, ``a/``/``b/``, dev-null."""
     path = path.split("\t", 1)[0].strip()

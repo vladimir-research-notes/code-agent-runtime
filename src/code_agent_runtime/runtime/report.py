@@ -23,6 +23,16 @@ def format_run_report(result: RunResult) -> str:
         f"({result.tool_call_count} tool call(s), {result.command_count} command(s))",
         f"  stop reason  : {result.stop_reason}",
     ]
+    blocked = sum(1 for s in result.steps if s.action_kind == "tool" and not s.allowed)
+    if result.policy is not None:
+        net = "on" if result.policy.get("network") else "off"
+        lines.append(
+            f"  sandbox      : enforced (network {net}, {blocked} call(s) blocked)"
+            if blocked
+            else f"  sandbox      : enforced (network {net})"
+        )
+    elif blocked:
+        lines.append(f"  sandbox      : not enforced ({blocked} call(s) blocked by allowed_tools)")
     if result.tests is not None:
         verdict = "passed" if result.tests.get("passed") else "failed"
         lines.append(f"  tests        : {verdict} (exit {result.tests.get('exit_code')})")

@@ -72,6 +72,11 @@ class RunConfig:
     init_git: bool = True
     #: Keep the ephemeral workspace on disk after the run (for inspection).
     keep_workspace: bool = False
+    #: Enforce the sandbox policy (Milestone 7): gate each agent tool call against
+    #: the run's :class:`~code_agent_runtime.sandbox.SandboxPolicy` and redact
+    #: credential-shaped output. On by default with permissive, task-derived
+    #: defaults; set ``False`` to restore pure ``allowed_tools`` gating.
+    enforce_sandbox: bool = True
 
 
 @dataclass(frozen=True)
@@ -127,6 +132,10 @@ class RunResult:
     kept_workspace: bool = False
     git: bool = False
     error: str | None = None
+    #: The effective sandbox policy for this run (Milestone 7), or ``None`` when
+    #: enforcement was disabled. Echoed so a result/trace records exactly what was
+    #: allowed and blocked, not just the verdict.
+    policy: Mapping[str, Any] | None = None
 
     @property
     def passed(self) -> bool:
@@ -148,5 +157,6 @@ class RunResult:
             "kept_workspace": self.kept_workspace,
             "git": self.git,
             "error": self.error,
+            "policy": dict(self.policy) if self.policy is not None else None,
             "steps": [s.to_dict() for s in self.steps],
         }

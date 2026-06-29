@@ -7,15 +7,17 @@ the registry dispatches it.
 
 Two honesty notes:
 
-- **The workspace is a copy, not a jail.** Tools are already confined to the
-  workspace directory (Milestone 3), and preparing a clean copy means a run never
-  mutates the committed fixture. But there is still **no** process isolation,
-  resource limit, or network policy here — that is the sandbox in Milestone 7.
-  Do not run untrusted tasks against a real host with this alone.
-- **``allowed_tools`` gating is a capability check, not the full policy.** It
-  refuses tools the task did not grant. Path/command/network policy and secret
-  scanning are Milestone 7; this is the part of containment that belongs to the
-  run loop and is cheap to do correctly now.
+- **The workspace is a copy, not a jail.** Tools are confined to the workspace
+  directory (Milestone 3), and preparing a clean copy means a run never mutates
+  the committed fixture. The Milestone 7 sandbox adds path/command/network policy
+  and output/time caps on top, but there is still **no** process or namespace
+  isolation here (a containerised runner is a documented non-goal for now). Do not
+  run a deliberately malicious agent against a real host with this alone.
+- **Gating has two layers.** :func:`dispatch_agent_call` first applies the task's
+  ``allowed_tools`` capability check, then — when a :class:`~code_agent_runtime.sandbox.Sandbox`
+  is supplied — the sandbox policy (allowed/denied paths, command allow/deny,
+  network), and finally redacts the result's output through the secret scanner. A
+  block at either layer is recorded as a structured ``"blocked"`` step.
 """
 
 from __future__ import annotations
@@ -27,6 +29,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
+from ..sandbox import Sandbox, SandboxPolicy
 from ..tasks import Task, resolve_fixture
 from ..tools import ToolCall, ToolContext, ToolRegistry, ToolResult
 
@@ -123,12 +126,29 @@ def _git_init_commit(root: Path) -> bool:
     return True
 
 
-def make_context(task: Task, workspace: Workspace, *, tool_timeout_seconds: int) -> ToolContext:
+def make_context(
+    task: Task,
+    workspace: Workspace,
+    *,
+    tool_timeout_seconds: int,
+    policy: SandboxPolicy | None = None,
+) -> ToolContext:
     """Build the :class:`ToolContext` tools run in for this workspace.
 
-    The output bound honours the task's declared ``resource_limits.max_output_bytes``
-    when set (otherwise the tool default); time is the configured per-tool budget.
+    When a sandbox ``policy`` is given (Milestone 7), the per-command caps come
+    from it: output is bounded by ``policy.max_output_bytes`` and the wall-clock
+    budget is the *tighter* of the configured per-tool budget and
+    ``policy.max_runtime_seconds`` — so a policy can lower a cap but never raise
+    it above the run's configured ceiling. Without a policy, the legacy behaviour
+    holds: the task's declared ``resource_limits.max_output_bytes`` (else the tool
+    default) and the configured per-tool time budget.
     """
+    if policy is not None:
+        return ToolContext.for_dir(
+            workspace.root,
+            max_output_bytes=policy.max_output_bytes,
+            timeout_seconds=min(tool_timeout_seconds, policy.max_runtime_seconds),
+        )
     limits = task.resource_limits
     kwargs: dict[str, int] = {"timeout_seconds": tool_timeout_seconds}
     if limits.max_output_bytes is not None:
@@ -141,12 +161,19 @@ def dispatch_agent_call(
     allowed_tools: Iterable[str],
     call: ToolCall,
     ctx: ToolContext,
+    *,
+    sandbox: Sandbox | None = None,
 ) -> tuple[ToolResult, bool]:
-    """Run an agent's ``call`` if the task allows the tool; otherwise block it.
+    """Run an agent's ``call`` if the task and sandbox allow it; else block it.
 
-    Returns ``(result, allowed)``. A blocked call yields a structured failed
-    result (category ``"blocked"``) and ``allowed=False`` — recorded in the
-    trace like any other step — and the tool is **not** executed.
+    Returns ``(result, allowed)``. A call is gated in two layers: first the task's
+    ``allowed_tools`` capability check, then (when ``sandbox`` is given) the
+    Milestone 7 policy — path/command/network rules. A block at either layer yields
+    a structured failed result (category ``"blocked"``) and ``allowed=False``, and
+    the tool is **not** executed. When a call is permitted and a ``sandbox`` is
+    present, the tool's result is run through the secret scanner before it is
+    returned, so a captured credential never reaches the step record, the trace,
+    or the agent's next observation.
     """
     allowed = set(allowed_tools)
     if call.tool not in allowed:
@@ -161,4 +188,11 @@ def dispatch_agent_call(
             ),
         )
         return result, False
-    return registry.dispatch(call, ctx), True
+    if sandbox is not None:
+        decision = sandbox.check_call(call, ctx)
+        if not decision.allowed:
+            return sandbox.blocked_result(call, decision), False
+    result = registry.dispatch(call, ctx)
+    if sandbox is not None:
+        result = sandbox.redact_result(result)
+    return result, True

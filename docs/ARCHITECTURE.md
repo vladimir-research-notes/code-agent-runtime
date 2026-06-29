@@ -1,9 +1,10 @@
 # Architecture
 
-> **Status:** Milestone 6. Tasks, tools, the runtime loop, structured run
-> tracing, and trace replay/summarise tooling are implemented; sandbox, full
-> scoring, reports, and adapters are filled in milestone by milestone (see
-> [`PLAN.md`](PLAN.md)). The component boundaries below are the design target.
+> **Status:** Milestone 7. Tasks, tools, the runtime loop, structured run
+> tracing, trace replay/summarise tooling, and permission policies / sandbox
+> controls are implemented; full scoring, reports, and adapters are filled in
+> milestone by milestone (see [`PLAN.md`](PLAN.md)). The component boundaries
+> below are the design target.
 
 ## Overview
 
@@ -36,7 +37,8 @@ task ──▶ workspace ──▶ agent loop ──▶ tools ──▶ tests �
    tools, timeout, scoring method, test command, resource limits).
 2. **Prepare workspace** — materialize a controlled copy of the fixture repo.
 3. **Agent step** — the agent proposes an action (a tool call).
-4. **Execute tool** — the runtime dispatches the call through permission checks.
+4. **Execute tool** — the runtime gates the call against `allowed_tools` and the
+   sandbox policy (Milestone 7), dispatches it, then redacts the result's output.
 5. **Run tests** — execute the task's test command in the workspace.
 6. **Score** — combine test results, diff constraints, and file checks.
 7. **Report** — emit a trace artifact and a human-readable report.
@@ -70,17 +72,24 @@ task ──▶ workspace ──▶ agent loop ──▶ tools ──▶ tests �
 - [x] Trace replay/debugging tooling — `replay_trace` reconstructs a run from its
       trace (timeline, tool calls, diff, tests, anomalies, failure point) without
       re-executing; `summarize_trace`/`trace_to_markdown` render it; `trace show`
-      and `trace report` CLI (Milestone 6). Rendered output is not redacted yet.
-- [ ] Sandbox, full scoring, reports, adapters — pending later milestones.
+      and `trace report` CLI (Milestone 6).
+- [x] Permission policies and sandbox controls — a `SandboxPolicy` (allowed/denied
+      paths, command allow/denylist, network flag, runtime/output caps) enforced on
+      every agent tool call by default, with a secret scanner that redacts
+      credential-shaped output before it enters a trace; an unsafe `probe` agent
+      demonstrates blocked-vs-allowed (Milestone 7). Not a jail — command matching
+      is by program name, network enforcement is heuristic, no process isolation.
+- [ ] Full scoring, reports, adapters — pending later milestones.
 
 ## Relevant files
 
 - `src/code_agent_runtime/__init__.py`, `src/code_agent_runtime/cli.py`
 - `src/code_agent_runtime/tasks/` (schema, loader, fixtures)
 - `src/code_agent_runtime/tools/` (registry, base, seven core tools)
-- `src/code_agent_runtime/agents/` (base, mock, scripted, solutions)
+- `src/code_agent_runtime/agents/` (base, mock, scripted, solutions, probes)
 - `src/code_agent_runtime/runtime/` (state, execution, agent_loop, report)
 - `src/code_agent_runtime/traces/` (schema, recorder, store, replay, summarize)
+- `src/code_agent_runtime/sandbox/` (policy, permissions, secret_scanner)
 - `tasks/`, `examples/` (example task definitions and fixtures)
 - `docs/PLAN.md` (target layout and milestones)
 

@@ -8,18 +8,20 @@ infrastructure *around* coding agents — task setup, tools, permissions,
 execution, tracing, replay, scoring, regression comparison, and reports. It is
 **not** a tutorial, a clone of a commercial tool, or a benchmark leaderboard.
 
-> Status: **Milestone 6 — Replay and debugging tools.** This repository is being
-> built milestone by milestone (see [`docs/PLAN.md`](docs/PLAN.md)). The package,
-> docs, website, packaging, and tests exist, plus an environment check, a
+> Status: **Milestone 7 — Permission policies and sandbox controls.** This
+> repository is being built milestone by milestone (see [`docs/PLAN.md`](docs/PLAN.md)).
+> The package, docs, website, packaging, and tests exist, plus an environment check, a
 > repository hygiene scanner, a versioned task format (schema, loader, example
 > tasks, `tasks` CLI), a tool registry with seven structured core tools (`tools`
 > CLI), a runtime loop that drives mock and scripted agents over a task (workspace
 > preparation, tool gating, test execution, minimal scoring, `run` CLI),
 > structured run tracing (a JSON trace schema, an opt-in recorder driven by the
-> run loop, and `run --trace`), and trace replay/debugging tooling (reconstruct a
+> run loop, and `run --trace`), trace replay/debugging tooling (reconstruct a
 > run from its trace and render a text summary or Markdown report, via
-> `trace show` / `trace report`). The sandbox, full scoring, and reports are not
-> yet implemented.
+> `trace show` / `trace report`), and permission policies / sandbox controls (a
+> `SandboxPolicy` enforced on every agent tool call by default, with output
+> redaction, plus an unsafe `probe` agent). Full scoring, reports, and model
+> adapters are not yet implemented.
 
 ## Design constraints
 
@@ -114,9 +116,36 @@ PYTHONPATH=src python3 -m code_agent_runtime run bugfix/sum-range-off-by-one --a
 PYTHONPATH=src python3 -m code_agent_runtime run cli/add-shout-flag --json
 ```
 
-Containment is workspace confinement plus capability gating only — there is **no**
-process isolation, resource limit, or network policy yet; that is the sandbox
-(Milestone 7). Do not run untrusted tasks against a real host until it lands.
+Containment is workspace confinement, `allowed_tools` capability gating, and the
+Milestone 7 sandbox policy (below). There is still **no** process/namespace
+isolation, so do not run a deliberately malicious agent against a real host.
+
+### Sandbox controls (Milestone 7)
+
+Every run enforces a `SandboxPolicy` on each agent tool call by default: allowed/
+denied read & write paths, a command allow/denylist, a network flag (default off),
+runtime/output caps, and a secret scanner that redacts credential-shaped output
+before it enters a step, a trace, or the agent's next observation. A denied call is
+recorded as a `blocked` step with the rule that stopped it. The defaults are
+permissive (ordinary build/test programs run; `.env`/`.git`/`.aws`/`*.pem` and
+host-destructive commands are blocked), so normal runs are unchanged.
+
+The built-in `probe` agent attempts the unsafe actions a coding agent must never
+perform; under the default policy the sandbox blocks every one while allowing a
+benign in-workspace read:
+
+```bash
+# Each unsafe step (read .env, read /etc/shadow, write outside, rm, curl) is blocked:
+PYTHONPATH=src python3 -m code_agent_runtime run security/unsafe-command-demo --agent probe
+
+# Disable enforcement (pure allowed_tools gating, no redaction):
+PYTHONPATH=src python3 -m code_agent_runtime run bugfix/sum-range-off-by-one --no-sandbox
+```
+
+This reduces blast radius and adds observability — it is **not** a jail. Command
+matching is by program name, network enforcement is a heuristic denylist, and
+there is no process/namespace isolation. See
+[`docs/SECURITY_MODEL.md`](docs/SECURITY_MODEL.md).
 
 ### Tracing a run (Milestone 5)
 
@@ -133,10 +162,11 @@ PYTHONPATH=src python3 -m code_agent_runtime run bugfix/sum-range-off-by-one --t
 PYTHONPATH=src python3 -m code_agent_runtime run cli/add-shout-flag --trace /tmp/run.trace.json
 ```
 
-Captured command output is **not** redacted yet, so a trace may contain whatever
-a command printed; do not persist traces of untrusted commands to a shared
-location until the secret scanner lands (Milestone 7). The default `traces/`
-destination is gitignored.
+With the sandbox enabled (the default), captured command output, file contents,
+and diffs are scrubbed of credential-shaped strings before they enter the trace —
+using the same heuristic patterns as the hygiene scanner, so redaction can miss
+novel or obfuscated secrets. With `--no-sandbox` no redaction occurs. The default
+`traces/` destination is gitignored either way.
 
 ### Inspecting and replaying a trace (Milestone 6)
 
@@ -158,8 +188,8 @@ PYTHONPATH=src python3 -m code_agent_runtime trace report traces/<trace_id>.trac
 
 `trace show` / `trace report` re-run nothing — no workspace, subprocess, or
 network. They are inspectors: they exit non-zero only on a missing or malformed
-trace, not on a failed run. Rendered output is **not** redacted either, so the
-same don't-publish-untrusted-runs caveat applies until Milestone 7.
+trace, not on a failed run. They render whatever the trace stored, which is
+redacted at record time when the sandbox was enabled (Milestone 7).
 
 Optionally install the package and dev extras in a virtual environment:
 
