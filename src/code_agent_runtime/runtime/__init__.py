@@ -16,7 +16,9 @@ Public API:
 
 Containment here is workspace confinement plus ``allowed_tools`` gating only; the
 full sandbox (process/resource/network policy, secret scanning) is Milestone 7.
-Tracing, full scoring, and suite reports are Milestones 5 and 8.
+Full scoring and suite reports are Milestone 8. Structured tracing (Milestone 5)
+is opt-in: pass ``recorder=`` to :func:`run_task` (see
+:mod:`code_agent_runtime.traces`); an untraced run is unchanged.
 """
 
 from __future__ import annotations

@@ -26,42 +26,67 @@
 <main>
   <h1>Tracing &amp; replay</h1>
   <p class="lede">A run that cannot be replayed from its trace is a bug, not a feature.</p>
-  <p><span class="status scaffold">status: planned (Milestones 5–6) — not implemented yet</span></p>
+  <p><span class="status scaffold">status: Milestone 5 — trace recorder implemented; replay/summarise tooling is Milestone 6</span></p>
 
   <h2>Brief explanation</h2>
-  <p>Every run is recorded as a structured trace capturing what the agent did and what the
-  runtime observed. Traces are the evidence behind every reported result.</p>
+  <p>Every run can be recorded as a structured, JSON-serialisable <strong>trace</strong>:
+  enough to reconstruct what the task was, what the agent did, what the runtime observed, and
+  <em>when</em> — without re-executing anything. A trace is the evidence behind a reported
+  result. Tracing is opt-in: an untraced run is byte-for-byte unchanged.</p>
 
   <h2>Deeper technical explanation</h2>
-  <p>A trace will include task metadata, workspace metadata, agent actions, tool calls,
-  command stdout/stderr, file diffs, test results, timestamps, and exit status. Replay
-  reconstructs the action timeline, tool calls, diffs, tests, and failure point — it does
-  not need to re-execute every command to be useful.</p>
+  <p>A trace has two layers. The <code>events</code> list is a timestamped timeline —
+  <code>run_started</code>, <code>workspace_prepared</code>, <code>tool_call</code>,
+  <code>agent_finish</code>, <code>tests_ran</code>, <code>diff_captured</code>,
+  <code>scored</code>, <code>run_finished</code> — each carrying a sequence number, the run
+  phase, a wall-clock <code>timestamp</code>, a monotonic <code>elapsed_seconds</code>, a
+  one-line summary, and a compact payload. The embedded <code>result</code> (the run's
+  <code>RunResult</code>) holds the full payloads exactly once: command stdout/stderr, the
+  final unified diff, test results, and exit status. Events are the timeline; the result is
+  the evidence they point into.</p>
+  <p>This is where <strong>wall-clock timing enters the system</strong>. Tools and
+  <code>RunResult</code> are deliberately timing-free so they stay deterministic; the trace is
+  the one temporal artifact. The recorder reads time through an injectable <code>Clock</code>
+  (real <code>time.time</code> + <code>time.monotonic</code> in production; a deterministic fake
+  in tests), so a traced run is fully reproducible under test. Replay and summarise tooling —
+  reconstructing the action timeline, diffs, tests, and failure point from a stored trace
+  without re-executing — is Milestone 6.</p>
 
   <h2>Current implementation status</h2>
-  <p>Not persisted yet, but the raw material exists. The runtime (Milestone 4) already returns
-  a structured, JSON-serialisable <code>RunResult</code>: per-step records (the agent action,
-  its arguments, whether it was allowed, and the structured tool result), the test result, the
-  final diff, the score, and the outcome. That is the first draft of the trace schema. The
-  dedicated trace schema and recorder that persist this to disk land in Milestone 5; inspection
-  and replay tooling in Milestone 6.</p>
+  <p>Implemented (Milestone 5). The <code>traces/</code> package defines the schema
+  (<code>Trace</code>, <code>TraceEvent</code>, <code>SCHEMA_VERSION</code>) and a
+  <code>TraceRecorder</code> the runtime loop drives stage by stage. <code>record_run</code>
+  returns <code>(result, trace)</code>; <code>write_trace</code>/<code>load_trace</code> persist
+  and reload a trace as JSON; and <code>code-agent-runtime run --trace [PATH]</code> records a
+  run from the CLI.</p>
 
   <h2>Relevant files</h2>
   <ul class="files">
-    <li>src/code_agent_runtime/runtime/state.py (RunResult, StepRecord — proto-trace)</li>
-    <li>src/code_agent_runtime/traces/ (schema, recorder — planned, Milestone 5)</li>
-    <li>docs/ARCHITECTURE.md</li>
-    <li>docs/RESEARCH_QUESTIONS.md</li>
+    <li>src/code_agent_runtime/traces/schema.py (Trace, TraceEvent, SCHEMA_VERSION)</li>
+    <li>src/code_agent_runtime/traces/recorder.py (TraceRecorder, Clock)</li>
+    <li>src/code_agent_runtime/traces/store.py (record_run, write_trace, load_trace)</li>
+    <li>src/code_agent_runtime/runtime/agent_loop.py (run_task recorder hooks)</li>
+    <li>src/code_agent_runtime/runtime/state.py (RunResult, StepRecord — embedded in the trace)</li>
+    <li>tests/test_traces.py</li>
   </ul>
 
   <h2>Current test/result status</h2>
-  <p>No trace tests yet. Validation will assert that a smoke run produces a schema-valid,
-  summarizable trace.</p>
+  <p><code>tests/test_traces.py</code> passes: schema round-trip, recorder lifecycle (event
+  order, sequence, elapsed), <code>record_run</code> over the shipped fixtures (full timeline,
+  embedded result, deterministic id and timestamps via a fake clock), the error path, JSON
+  persistence (file and directory), and the <code>run --trace</code> CLI. Git-dependent
+  assertions (the <code>diff_captured</code> event) skip when <code>git</code> is absent.</p>
 
   <h2>Open questions / limitations</h2>
   <ul>
-    <li>What is the minimal trace schema sufficient for faithful replay?</li>
-    <li>How to redact secrets from captured command output before persisting.</li>
+    <li><strong>Captured output is not redacted.</strong> A trace stores command stdout/stderr
+    as captured, so it may contain whatever a command printed (including secrets). Redaction
+    belongs with the secret scanner in Milestone 7; until then, do not persist traces of
+    untrusted commands to a shared location.</li>
+    <li>Is the event/result split (timeline vs. payloads) the right boundary for faithful
+    replay? Milestone 6 will tell.</li>
+    <li><code>default_trace_id</code> is best-effort unique (<code>&lt;task&gt;-&lt;wall.3f&gt;</code>);
+    pass an explicit id when a hard guarantee is needed.</li>
   </ul>
 </main>
 <footer class="site">Code Agent Runtime — research/engineering scaffold. Built milestone by milestone.</footer>

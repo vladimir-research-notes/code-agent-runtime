@@ -26,12 +26,14 @@
 <main>
   <h1>Limitations &amp; non-goals</h1>
   <p class="lede">What is true today, and what this project deliberately is not.</p>
-  <p><span class="status scaffold">status: current as of Milestone 1</span></p>
+  <p><span class="status scaffold">status: current as of Milestone 5</span></p>
 
   <h2>Brief explanation</h2>
-  <p>At Milestone 1 the repository has a package, CLI, docs, website, packaging, CPU-only
-  tests, an environment check, and a repository hygiene scanner. The agent runtime, tools,
-  sandbox enforcement, tracing, and scoring are not built yet.</p>
+  <p>As of Milestone 5 the repository has a package and CLI, docs, website, packaging, CPU-only
+  tests, an environment check and hygiene scanner, a versioned task format, a tool registry with
+  seven core tools, a runtime loop that drives mock/scripted agents over a task, and structured
+  run tracing. Sandbox enforcement, replay tooling, full scoring, reports, and model adapters are
+  not built yet.</p>
 
   <h2>Deeper technical explanation</h2>
   <h3>Known limitations</h3>
@@ -39,6 +41,11 @@
     <li><strong>No sandbox.</strong> No enforced runtime isolation — see
       <a href="security.html">Security</a>. The hygiene scanner is a commit-time guard, not a
       runtime control.</li>
+    <li><strong>Traces are not redacted.</strong> A recorded trace stores command
+      stdout/stderr as captured, so it may contain whatever a command printed (including
+      secrets). Persisting traces of untrusted commands to a shared location is unsafe until
+      the secret scanner lands (Milestone 7). The default <code>--trace</code> destination
+      (<code>traces/</code>) is gitignored to avoid accidental commits.</li>
     <li><strong>Hygiene secret detection is heuristic.</strong> High-precision patterns favor
       avoiding false positives over catching every secret; it can miss novel or obfuscated
       credentials and is not a guarantee.</li>
@@ -67,8 +74,8 @@
   </ul>
 
   <h2>Current test/result status</h2>
-  <p>CPU-only tests pass, including environment and hygiene-scanner tests; nothing beyond
-  Milestone 1 is claimed.</p>
+  <p>CPU-only tests pass, including environment, hygiene-scanner, task, tool, runtime, and
+  tracing tests; nothing beyond Milestone 5 is claimed.</p>
 
   <h2>Open questions / limitations</h2>
   <p>Each milestone narrows these as real subsystems land and are tested.</p>

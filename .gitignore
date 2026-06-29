@@ -49,6 +49,10 @@ node_modules/
 # Logs
 *.log
 
+# Trace output directory (the `run --trace` default destination). Specific
+# example traces, if ever committed, should live elsewhere and be force-added.
+/traces/
+
 # OS / editor cruft
 .DS_Store
 *.swp

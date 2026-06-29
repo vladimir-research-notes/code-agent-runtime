@@ -29,7 +29,7 @@
   <em>around</em> coding agents: task setup, tools, permissions, execution, tracing, replay,
   scoring, regression comparison, and reports.</p>
 
-  <p><span class="status scaffold">status: Milestone 4 — local runtime state machine</span></p>
+  <p><span class="status scaffold">status: Milestone 5 — structured run tracing</span></p>
 
   <h2>Brief explanation</h2>
   <p>Modern coding agents need a runtime, not just a prompt. This project builds the
@@ -58,7 +58,9 @@
     <li>Local runtime state machine — mock and scripted agents, workspace preparation,
       allowed-tool gating, test execution, minimal scoring, and a <code>run</code> CLI —
       <strong>done</strong> (Milestone 4).</li>
-    <li>Tracing, replay, sandbox, full scoring, reports — <em>pending</em>.</li>
+    <li>Structured run tracing — a JSON trace schema, an opt-in recorder driven by the run
+      loop, and <code>run --trace</code> — <strong>done</strong> (Milestone 5).</li>
+    <li>Replay, sandbox, full scoring, reports — <em>pending</em>.</li>
   </ul>
 
   <h2>Relevant files</h2>
@@ -70,6 +72,7 @@
     <li>src/code_agent_runtime/tools/ (registry, base, seven core tools)</li>
     <li>src/code_agent_runtime/agents/ (mock, scripted, solutions)</li>
     <li>src/code_agent_runtime/runtime/ (state, execution, agent_loop, report)</li>
+    <li>src/code_agent_runtime/traces/ (schema, recorder, store)</li>
     <li>tasks/, examples/</li>
     <li>scripts/00_check_environment.py, scripts/04_check_repo_hygiene.py</li>
     <li>docs/PLAN.md</li>
@@ -77,17 +80,19 @@
 
   <h2>Current test/result status</h2>
   <p>CPU-only tests pass (<code>python3 -m pytest -q</code>), including environment,
-  hygiene-scanner, task-format, tool, and runtime tests. The runtime suite drives the
+  hygiene-scanner, task-format, tool, runtime, and tracing tests. The runtime suite drives the
   scripted agent from failing tests to passing on the bugfix fixture end to end, confirms
   the null mock agent leaves it failing, and checks workspace preparation, tool gating, and
-  scoring. A guard asserts the committed tree is clean. No multi-agent evaluation suite has
-  been run yet; see <a href="results.html">Results</a>.</p>
+  scoring. The tracing suite asserts a traced run produces a schema-valid, reloadable trace
+  with a faithful timeline and embedded result. A guard asserts the committed tree is clean.
+  No multi-agent evaluation suite has been run yet; see <a href="results.html">Results</a>.</p>
 
   <h2>Open questions / limitations</h2>
   <p>The runtime provides workspace confinement and <code>allowed_tools</code> gating only —
   no process isolation, resource limits, or network policy yet (that is the sandbox,
-  Milestone 7). No tracing, full scoring, or eval suite yet. This is not a production-grade
-  sandbox and not a benchmark leaderboard. See <a href="limitations.html">Limitations</a>.</p>
+  Milestone 7). Traces are recorded but <strong>not redacted</strong> (also Milestone 7), and
+  there is no full scoring or eval suite yet. This is not a production-grade sandbox and not a
+  benchmark leaderboard. See <a href="limitations.html">Limitations</a>.</p>
 </main>
 <footer class="site">Code Agent Runtime — research/engineering scaffold. Built milestone by milestone.</footer>
 </body>

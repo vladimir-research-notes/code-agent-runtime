@@ -3,9 +3,10 @@
 The CLI is intentionally minimal at this stage. It exposes version/status
 commands, the Milestone 1 operational checks (``env-check``, ``hygiene``), the
 Milestone 2 task tools (``tasks list`` / ``tasks show``), the Milestone 3 tool
-registry (``tools list`` / ``tools show``), and the Milestone 4 runtime (``run``).
-Tracing, replay, full scoring, and suite reporting subcommands are added in later
-milestones (see ``docs/PLAN.md``).
+registry (``tools list`` / ``tools show``), and the Milestone 4 runtime (``run``)
+with optional Milestone 5 trace recording (``run --trace``). Replay, full
+scoring, and suite reporting subcommands are added in later milestones (see
+``docs/PLAN.md``).
 """
 
 from __future__ import annotations
@@ -23,11 +24,12 @@ from . import hygiene as _hygiene
 from . import runtime as _runtime
 from . import tasks as _tasks
 from . import tools as _tools
+from . import traces as _traces
 
 # The milestone the runtime currently implements. Kept here so ``info`` can
 # report honest project status without scanning the filesystem.
-CURRENT_MILESTONE = "Milestone 4 — Local runtime state machine"
-NEXT_MILESTONE = "Milestone 5 — Trace recorder"
+CURRENT_MILESTONE = "Milestone 5 — Trace recorder"
+NEXT_MILESTONE = "Milestone 6 — Replay and debugging tools"
 
 #: Default directory the ``tasks`` subcommands scan.
 DEFAULT_TASKS_DIR = "tasks"
@@ -175,6 +177,18 @@ def _add_run_parser(subparsers: argparse._SubParsersAction) -> None:
         "--keep-workspace",
         action="store_true",
         help="Keep the ephemeral workspace on disk and print its path.",
+    )
+    p_run.add_argument(
+        "--trace",
+        nargs="?",
+        const="traces",
+        default=None,
+        metavar="PATH",
+        help=(
+            "Record a structured trace of the run. PATH ending in .json is the "
+            "output file; any other PATH (default: traces/) is a directory the "
+            "trace is written into as <trace_id>.trace.json."
+        ),
     )
     p_run.add_argument("--json", action="store_true", help="Emit the run result as JSON.")
     p_run.set_defaults(func=_cmd_run)
@@ -373,12 +387,22 @@ def _cmd_run(args: argparse.Namespace) -> int:
         run_tests=not args.no_tests,
         keep_workspace=args.keep_workspace,
     )
-    result = _runtime.run_task(task, agent, config=config)
+
+    trace = None
+    if args.trace is not None:
+        result, trace = _traces.record_run(task, agent, config=config)
+    else:
+        result = _runtime.run_task(task, agent, config=config)
 
     if args.json:
         print(json.dumps(result.to_dict(), indent=2))
     else:
         print(_runtime.format_run_report(result))
+
+    if trace is not None:
+        written = _traces.write_trace(trace, args.trace)
+        # Trace path to stderr so it does not pollute --json stdout.
+        print(f"trace written: {written} ({len(trace.events)} events)", file=sys.stderr)
 
     # Exit code mirrors the verdict: 0 passed/not-scored, 1 failed, 2 errored.
     if result.outcome == _runtime.RunOutcome.ERROR:

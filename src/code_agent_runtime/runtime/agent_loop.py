@@ -19,8 +19,12 @@ Design choices:
   (``expected_files``, ``diff_constraint``, ``custom``) and the suite/regression
   machinery are Milestone 8; until then they resolve to ``not_scored`` with a
   note rather than a fabricated verdict.
-- **No wall-clock timing.** Consistent with the tools layer; timing belongs to
-  the trace recorder (Milestone 5).
+- **No wall-clock timing in the result.** Consistent with the tools layer, the
+  :class:`RunResult` stays deterministic and timing-free. Timing lives in the
+  optional trace recorder (Milestone 5): pass ``recorder=`` and the loop emits a
+  timestamped event at each stage. The loop never imports the tracer — it calls a
+  duck-typed object and skips it when ``recorder is None`` — so an untraced run is
+  unchanged.
 """
 
 from __future__ import annotations
@@ -51,6 +55,7 @@ def run_task(
     config: RunConfig | None = None,
     registry=None,
     workspace_dest=None,
+    recorder=None,
 ) -> RunResult:
     """Run ``agent`` against ``task`` and return a structured :class:`RunResult`.
 
@@ -58,6 +63,12 @@ def run_task(
     caller's, e.g. the CLI's ``run`` command). Workspace preparation failures are
     captured as an ``error`` outcome rather than raised, so a batch runner can
     keep going.
+
+    ``recorder`` is an optional :class:`~code_agent_runtime.traces.TraceRecorder`
+    (or any object with the same lifecycle methods). When given, the loop emits a
+    timestamped event at each stage and ``recorder.finish(result)`` is called
+    before returning, so ``recorder.trace`` holds the complete trace. When
+    ``None``, tracing is skipped entirely and the run is byte-for-byte unchanged.
     """
     config = config or RunConfig()
     registry = registry or build_registry()
@@ -69,10 +80,15 @@ def run_task(
     tests_data: Mapping[str, Any] | None = None
     diff_data: Mapping[str, Any] | None = None
 
+    if recorder is not None:
+        recorder.start(task=task, agent=agent.name, config=config)
+
     try:
         workspace = prepare_workspace(
             task, dest=workspace_dest, init_git=config.init_git
         )
+        if recorder is not None:
+            recorder.workspace_prepared(workspace)
         ctx = make_context(task, workspace, tool_timeout_seconds=config.tool_timeout_seconds)
 
         # --- agent loop ----------------------------------------------------
@@ -96,6 +112,8 @@ def run_task(
                         message=action.message,
                     )
                 )
+                if recorder is not None:
+                    recorder.agent_step(steps[-1])
                 completed_loop = True
                 break
             call = action.call
@@ -112,6 +130,8 @@ def run_task(
                     message=action.message,
                 )
             )
+            if recorder is not None:
+                recorder.agent_step(steps[-1])
             last_result = result
         if not completed_loop:
             stop_reason = f"reached max_steps ({config.max_steps})"
@@ -125,6 +145,8 @@ def run_task(
                 timeout_seconds=config.tool_timeout_seconds,
             )
             tests_data = test_result.data
+            if recorder is not None:
+                recorder.tests_ran(test_result)
 
         # --- capture final diff -------------------------------------------
         if workspace.git:
@@ -132,13 +154,17 @@ def run_task(
             diff_result = registry.get("git_diff").run(ctx)
             if diff_result.ok:
                 diff_data = diff_result.data
+                if recorder is not None:
+                    recorder.diff_captured(diff_result)
 
         # --- score ---------------------------------------------------------
         phase = RunPhase.SCORING
         score = _score(task, tests_data)
+        if recorder is not None:
+            recorder.scored(score)
 
         phase = RunPhase.REPORTING
-        return _build_result(
+        result = _build_result(
             task=task,
             agent=agent,
             steps=steps,
@@ -150,13 +176,23 @@ def run_task(
             phase_reached=RunPhase.DONE,
             config=config,
         )
+        return _finish_trace(recorder, result)
     except WorkspaceError as exc:
-        return _error_result(task, agent, steps, str(exc), phase, workspace, config)
+        result = _error_result(task, agent, steps, str(exc), phase, workspace, config)
+        return _finish_trace(recorder, result)
     except Exception as exc:  # pragma: no cover - defensive; surfaced, not swallowed
-        return _error_result(task, agent, steps, repr(exc), phase, workspace, config)
+        result = _error_result(task, agent, steps, repr(exc), phase, workspace, config)
+        return _finish_trace(recorder, result)
     finally:
         if workspace is not None and not config.keep_workspace:
             workspace.cleanup()
+
+
+def _finish_trace(recorder, result: RunResult) -> RunResult:
+    """Close the trace (if recording) and return ``result`` unchanged."""
+    if recorder is not None:
+        recorder.finish(result)
+    return result
 
 
 def _score(task: Task, tests_data: Mapping[str, Any] | None) -> dict[str, Any]:

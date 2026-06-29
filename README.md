@@ -8,14 +8,15 @@ infrastructure *around* coding agents — task setup, tools, permissions,
 execution, tracing, replay, scoring, regression comparison, and reports. It is
 **not** a tutorial, a clone of a commercial tool, or a benchmark leaderboard.
 
-> Status: **Milestone 4 — Local runtime state machine.** This repository is being
-> built milestone by milestone (see [`docs/PLAN.md`](docs/PLAN.md)). The package,
-> docs, website, packaging, and tests exist, plus an environment check, a
-> repository hygiene scanner, a versioned task format (schema, loader, example
-> tasks, `tasks` CLI), a tool registry with seven structured core tools (`tools`
-> CLI), and a runtime loop that drives mock and scripted agents over a task
-> (workspace preparation, tool gating, test execution, minimal scoring, `run`
-> CLI). Tracing, replay, the sandbox, full scoring, and reports are not yet
+> Status: **Milestone 5 — Trace recorder.** This repository is being built
+> milestone by milestone (see [`docs/PLAN.md`](docs/PLAN.md)). The package, docs,
+> website, packaging, and tests exist, plus an environment check, a repository
+> hygiene scanner, a versioned task format (schema, loader, example tasks, `tasks`
+> CLI), a tool registry with seven structured core tools (`tools` CLI), a runtime
+> loop that drives mock and scripted agents over a task (workspace preparation,
+> tool gating, test execution, minimal scoring, `run` CLI), and structured run
+> tracing (a JSON trace schema, an opt-in recorder driven by the run loop, and
+> `run --trace`). Replay, the sandbox, full scoring, and reports are not yet
 > implemented.
 
 ## Design constraints
@@ -114,6 +115,26 @@ PYTHONPATH=src python3 -m code_agent_runtime run cli/add-shout-flag --json
 Containment is workspace confinement plus capability gating only — there is **no**
 process isolation, resource limit, or network policy yet; that is the sandbox
 (Milestone 7). Do not run untrusted tasks against a real host until it lands.
+
+### Tracing a run (Milestone 5)
+
+Any run can be recorded as a structured, JSON-serialisable **trace**: task and
+workspace metadata, a timestamped timeline of agent actions and tool calls, and
+the full embedded result (command output, the final diff, test results, exit
+status). Tracing is opt-in — an untraced run is unchanged.
+
+```bash
+# Record a trace into traces/ (written as traces/<trace_id>.trace.json):
+PYTHONPATH=src python3 -m code_agent_runtime run bugfix/sum-range-off-by-one --trace traces/
+
+# Or to a specific file (the path is printed to stderr):
+PYTHONPATH=src python3 -m code_agent_runtime run cli/add-shout-flag --trace /tmp/run.trace.json
+```
+
+Captured command output is **not** redacted yet, so a trace may contain whatever
+a command printed; do not persist traces of untrusted commands to a shared
+location until the secret scanner lands (Milestone 7). The default `traces/`
+destination is gitignored.
 
 Optionally install the package and dev extras in a virtual environment:
 

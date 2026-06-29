@@ -26,7 +26,7 @@
 <main>
   <h1>Architecture</h1>
   <p class="lede">How a versioned task and an agent become a scored, replayable trace.</p>
-  <p><span class="status scaffold">status: Milestone 4 — tasks, tools, and the runtime loop implemented; tracing/sandbox pending</span></p>
+  <p><span class="status scaffold">status: Milestone 5 — tasks, tools, the runtime loop, and structured tracing implemented; sandbox pending</span></p>
 
   <h2>Brief explanation</h2>
   <p>The runtime is an explicit pipeline. Each stage has a clear input and output so that
@@ -94,13 +94,30 @@
   process isolation, resource limit, or network policy yet (that is the sandbox, Milestone 7).
   Scoring is intentionally minimal; the full scorer, suite runner, and reports are Milestone 8.</p>
 
+  <h2>Trace recorder (Milestone 5)</h2>
+  <p>A run can be recorded as a structured, JSON-serialisable <code>Trace</code> with two
+  layers: a timestamped <code>events</code> timeline (<code>run_started</code>,
+  <code>workspace_prepared</code>, <code>tool_call</code>, <code>agent_finish</code>,
+  <code>tests_ran</code>, <code>diff_captured</code>, <code>scored</code>,
+  <code>run_finished</code>) and the embedded <code>result</code> holding the full payloads
+  (command stdout/stderr, the final diff, test results, exit status). The recorder owns the
+  <em>when</em> — each event carries a wall-clock <code>timestamp</code> and a monotonic
+  <code>elapsed_seconds</code>; the run carries <code>started_at</code>/<code>finished_at</code>/
+  <code>duration_seconds</code>. This is the one temporal artifact: tools and
+  <code>RunResult</code> stay timing-free and deterministic. Tracing is opt-in — the loop
+  records only when a recorder is passed (<code>run_task(..., recorder=)</code> /
+  <code>record_run</code> / <code>run --trace</code>) — and the loop never imports the tracer,
+  so an untraced run is unchanged. Captured output is <strong>not</strong> redacted yet
+  (Milestone 7).</p>
+
   <h2>Current implementation status</h2>
   <ul>
     <li>Package scaffold and CLI — done.</li>
     <li>Versioned task format (Milestone 2) — done.</li>
     <li>Tool registry and seven core tools (Milestone 3) — done.</li>
     <li>Runtime loop with mock/scripted agents and a <code>run</code> CLI (Milestone 4) — done.</li>
-    <li>Tracing, replay, sandbox, full scoring, reports, adapters — pending.</li>
+    <li>Structured run tracing with an opt-in recorder and <code>run --trace</code> (Milestone 5) — done.</li>
+    <li>Replay, sandbox, full scoring, reports, adapters — pending.</li>
   </ul>
 
   <h2>Relevant files</h2>
@@ -111,7 +128,8 @@
     <li>src/code_agent_runtime/tools/ (base, registry, seven tools, _exec)</li>
     <li>src/code_agent_runtime/agents/ (base, mock, scripted, solutions)</li>
     <li>src/code_agent_runtime/runtime/ (state, execution, agent_loop, report)</li>
-    <li>tests/test_tools.py, tests/test_runtime.py</li>
+    <li>src/code_agent_runtime/traces/ (schema, recorder, store)</li>
+    <li>tests/test_tools.py, tests/test_runtime.py, tests/test_traces.py</li>
     <li>docs/PLAN.md</li>
   </ul>
 
