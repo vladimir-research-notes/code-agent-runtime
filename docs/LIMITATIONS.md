@@ -1,6 +1,6 @@
 # Limitations and non-goals
 
-> **Status:** current as of Milestone 7. Updated at every milestone.
+> **Status:** current as of Milestone 9. Updated at every milestone.
 
 ## What is true today
 
@@ -15,8 +15,19 @@
   schema, an opt-in recorder, and `run --trace`; Milestone 5), **trace
   replay/debugging tooling** (`trace show` / `trace report`; Milestone 6), and
   **permission policies and sandbox controls** (a `SandboxPolicy` enforced on
-  every agent tool call, with output redaction; Milestone 7) are implemented.
-- Full scoring, reports, and model adapters are **not** implemented yet.
+  every agent tool call, with output redaction; Milestone 7), **scoring and
+  evaluation reports** (all four scoring methods, a suite runner, Markdown/HTML
+  reports, and an `eval` CLI; Milestone 8), and **regression comparison with
+  flakiness analysis** (diff two result files into improved/regressed/unchanged/
+  flaky buckets, plus a rerun mode; `eval compare` / `eval rerun`; Milestone 9)
+  are implemented.
+- Optional cost-controlled model adapters are **not** implemented yet.
+- **Regression judges only pass/fail.** A key is *improved* only if it gained a
+  pass and *regressed* only if it lost one; a "0 regressions" comparison is not a
+  correctness proof. Flakiness needs repeats (two single-run files cannot reveal
+  it) and small repeat counts make it a smoke check, not a flake-probability
+  estimate; the deterministic baseline shows zero flaky keys. Regression/flakiness
+  reports are Markdown + JSON only (no standalone HTML yet).
 
 ## Known limitations
 

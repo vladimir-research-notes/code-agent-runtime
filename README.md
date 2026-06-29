@@ -8,7 +8,7 @@ infrastructure *around* coding agents — task setup, tools, permissions,
 execution, tracing, replay, scoring, regression comparison, and reports. It is
 **not** a tutorial, a clone of a commercial tool, or a benchmark leaderboard.
 
-> Status: **Milestone 8 — Scoring and evaluation reports.** This
+> Status: **Milestone 9 — Regression comparison and flakiness analysis.** This
 > repository is being built milestone by milestone (see [`docs/PLAN.md`](docs/PLAN.md)).
 > The package, docs, website, packaging, and tests exist, plus an environment check, a
 > repository hygiene scanner, a versioned task format (schema, loader, example
@@ -20,11 +20,14 @@ execution, tracing, replay, scoring, regression comparison, and reports. It is
 > run from its trace and render a text summary or Markdown report, via
 > `trace show` / `trace report`), permission policies / sandbox controls (a
 > `SandboxPolicy` enforced on every agent tool call by default, with output
-> redaction, plus an unsafe `probe` agent), and scoring + evaluation reports (all
+> redaction, plus an unsafe `probe` agent), scoring + evaluation reports (all
 > four scoring methods — `test_command`, `expected_files`, `diff_constraint`,
 > `custom` — a suite runner producing a JSON result, Markdown/HTML reports, and an
-> `eval` CLI; a real baseline is in [`docs/RESULTS.md`](docs/RESULTS.md)).
-> Regression comparison and model adapters are not yet implemented.
+> `eval` CLI; a real baseline is in [`docs/RESULTS.md`](docs/RESULTS.md)), and
+> regression comparison + flakiness analysis (diff two result files into
+> improved/regressed/unchanged/flaky buckets, and re-run the suite N times to flag
+> non-deterministic keys, via `eval compare` / `eval rerun`).
+> Optional cost-controlled model adapters are not yet implemented.
 
 ## Design constraints
 
@@ -233,6 +236,31 @@ agent fails the ones requiring a change) is committed in
 proof**, of correctness, and `diff_constraint` scores scope, not correctness —
 see the caveats there. Generated artifacts under `results/` are gitignored.
 
+### Regression comparison and flakiness analysis (Milestone 9)
+
+Two analyses over the result files above. `eval compare` diffs a baseline result
+against a candidate, keyed by `(task_id, agent)`, into
+**improved / regressed / unchanged / flaky / added / removed** buckets — *improved*
+means the key gained a pass, *regressed* means it lost one. `eval rerun` re-runs
+the matrix N times (*rerun mode*) and flags any key whose scored outcome was not
+identical on every repeat; the deterministic baseline reports **zero** flaky keys.
+
+```bash
+# Re-run the suite 3× and report flaky keys (exit 1 if any flake):
+PYTHONPATH=src python3 -m code_agent_runtime eval rerun --dir tasks --repeats 3
+
+# Diff two saved result files (exit 1 if any regression):
+PYTHONPATH=src python3 -m code_agent_runtime eval compare base.json cand.json
+
+# One-shot demo: flakiness + a mock→scripted regression comparison:
+python3 scripts/03_regression_demo.py
+```
+
+A "0 regressions" comparison means *no key lost a pass relative to the baseline* —
+not that the candidate is correct. Because the deterministic baseline cannot
+regress against itself, the *regressed* and *flaky* buckets are demonstrated on
+synthetic "fake agent versions" in `tests/test_regression.py`.
+
 Optionally install the package and dev extras in a virtual environment:
 
 ```bash
@@ -254,7 +282,7 @@ environment caveats.
 | [`docs/METHODOLOGY.md`](docs/METHODOLOGY.md) | How agents are evaluated. |
 | [`docs/SECURITY_MODEL.md`](docs/SECURITY_MODEL.md) | Threat model and sandbox limits. |
 | [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md) | What is and isn't proven. |
-| [`docs/RESULTS.md`](docs/RESULTS.md) | Real baseline result table (Milestone 8). |
+| [`docs/RESULTS.md`](docs/RESULTS.md) | Real baseline result table, regression + flakiness (Milestones 8–9). |
 | [`docs/REPRODUCIBILITY.md`](docs/REPRODUCIBILITY.md) | How to reproduce runs. |
 | [`docs/RESEARCH_QUESTIONS.md`](docs/RESEARCH_QUESTIONS.md) | Questions this platform probes. |
 

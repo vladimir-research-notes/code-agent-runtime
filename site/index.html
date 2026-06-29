@@ -29,7 +29,7 @@
   <em>around</em> coding agents: task setup, tools, permissions, execution, tracing, replay,
   scoring, regression comparison, and reports.</p>
 
-  <p><span class="status done">status: Milestone 8 — scoring &amp; evaluation reports</span></p>
+  <p><span class="status done">status: Milestone 9 — regression comparison &amp; flakiness analysis</span></p>
 
   <h2>Brief explanation</h2>
   <p>Modern coding agents need a runtime, not just a prompt. This project builds the
@@ -72,7 +72,12 @@
       <code>custom</code>) plus a suite runner, Markdown/HTML reports, and an <code>eval</code>
       CLI; a real baseline is in <a href="results.html">Results</a> — <strong>done</strong>
       (Milestone 8).</li>
-    <li>Regression comparison and optional model adapters — <em>pending</em>.</li>
+    <li>Regression comparison and flakiness analysis — diff two result files into
+      improved/regressed/unchanged/flaky/added/removed buckets, plus a rerun mode that
+      re-runs the suite N times to flag non-deterministic keys (zero for the deterministic
+      baseline), via <code>eval compare</code> / <code>eval rerun</code> —
+      <strong>done</strong> (Milestone 9).</li>
+    <li>Optional cost-controlled model adapters — <em>pending</em>.</li>
   </ul>
 
   <h2>Relevant files</h2>
@@ -86,20 +91,22 @@
     <li>src/code_agent_runtime/runtime/ (state, execution, agent_loop, report)</li>
     <li>src/code_agent_runtime/traces/ (schema, recorder, store, replay, summarize)</li>
     <li>src/code_agent_runtime/sandbox/ (policy, permissions, secret_scanner)</li>
-    <li>src/code_agent_runtime/scoring/ (scorers, suite), src/code_agent_runtime/reports/ (markdown, html)</li>
+    <li>src/code_agent_runtime/scoring/ (scorers, suite, regression), src/code_agent_runtime/reports/ (markdown, html, regression)</li>
     <li>tasks/, examples/</li>
-    <li>scripts/00_check_environment.py, scripts/02_generate_report.py, scripts/04_check_repo_hygiene.py</li>
+    <li>scripts/00_check_environment.py, scripts/02_generate_report.py, scripts/03_regression_demo.py, scripts/04_check_repo_hygiene.py</li>
     <li>docs/PLAN.md</li>
   </ul>
 
   <h2>Current test/result status</h2>
   <p>CPU-only tests pass (<code>python3 -m pytest -q</code>), including environment,
-  hygiene-scanner, task-format, tool, runtime, tracing, replay, sandbox, scoring, and eval
-  tests. The runtime suite drives the scripted agent from failing tests to passing end to end
-  and confirms the null mock agent leaves it failing; the tracing/replay suites assert a run
-  reconstructs faithfully from its trace; the sandbox suite asserts blocked-vs-allowed and
-  secret redaction. The scoring suite unit-tests every scorer and the suite runner now produces
-  a real multi-agent baseline — see <a href="results.html">Results</a>. A guard asserts the
+  hygiene-scanner, task-format, tool, runtime, tracing, replay, sandbox, scoring, eval, and
+  regression/flakiness tests. The runtime suite drives the scripted agent from failing tests to
+  passing end to end and confirms the null mock agent leaves it failing; the tracing/replay
+  suites assert a run reconstructs faithfully from its trace; the sandbox suite asserts
+  blocked-vs-allowed and secret redaction. The scoring suite unit-tests every scorer and the
+  suite runner produces a real multi-agent baseline; the regression suite asserts the
+  improved/regressed/unchanged/flaky buckets on synthetic agent versions and that re-running the
+  real suite yields zero flaky keys — see <a href="results.html">Results</a>. A guard asserts the
   committed tree is clean.</p>
 
   <h2>Open questions / limitations</h2>

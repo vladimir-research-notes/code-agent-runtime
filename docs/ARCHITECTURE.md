@@ -1,11 +1,11 @@
 # Architecture
 
-> **Status:** Milestone 8. Tasks, tools, the runtime loop, structured run
+> **Status:** Milestone 9. Tasks, tools, the runtime loop, structured run
 > tracing, trace replay/summarise tooling, permission policies / sandbox
-> controls, and scoring + evaluation reports are implemented; regression
-> comparison and optional model adapters are filled in milestone by milestone
-> (see [`PLAN.md`](PLAN.md)). The component boundaries below are the design
-> target.
+> controls, scoring + evaluation reports, and regression comparison + flakiness
+> analysis are implemented; optional model adapters are filled in milestone by
+> milestone (see [`PLAN.md`](PLAN.md)). The component boundaries below are the
+> design target.
 
 ## Overview
 
@@ -29,8 +29,8 @@ task ──▶ workspace ──▶ agent loop ──▶ tools ──▶ tests �
 | Tools | `tools/` | Structured file, patch, shell, git, test, search tools. |
 | Sandbox | `sandbox/` | Permission policy, secret scanning, runners. |
 | Traces | `traces/` | Trace schema, recorder, replay, summarization. |
-| Scoring | `scoring/` | Test/file/diff/custom scorers and the suite runner (regression in M9). |
-| Reports | `reports/` | Markdown and HTML result reports. |
+| Scoring | `scoring/` | Test/file/diff/custom scorers, the suite runner, and regression/flakiness analysis (`regression.py`). |
+| Reports | `reports/` | Markdown/HTML suite reports and Markdown regression/flakiness reports. |
 
 ## Data flow
 
@@ -90,7 +90,13 @@ task ──▶ workspace ──▶ agent loop ──▶ tools ──▶ tests �
       a suite runner producing a JSON `SuiteResult`, `reports/` for Markdown/HTML
       tables, an optional `scoring_config` task field, and an `eval run`/`eval
       report` CLI (Milestone 8). Verdicts are evidence-based and reproducible.
-- [ ] Regression comparison and optional model adapters — pending later milestones.
+- [x] Regression comparison and flakiness analysis — `scoring/regression.py`
+      diffs two `SuiteResult` files into improved/regressed/unchanged/flaky/added/
+      removed buckets (`compare_suites`) and aggregates repeated runs into a
+      flakiness verdict (`analyze_flakiness`); rerun mode (`run_repeated`),
+      Markdown reports, and an `eval compare`/`eval rerun` CLI (Milestone 9). The
+      deterministic baseline reports zero flaky keys.
+- [ ] Optional cost-controlled model adapters — pending later milestones.
 
 ## Relevant files
 
@@ -101,10 +107,10 @@ task ──▶ workspace ──▶ agent loop ──▶ tools ──▶ tests �
 - `src/code_agent_runtime/runtime/` (state, execution, agent_loop, report)
 - `src/code_agent_runtime/traces/` (schema, recorder, store, replay, summarize)
 - `src/code_agent_runtime/sandbox/` (policy, permissions, secret_scanner)
-- `src/code_agent_runtime/scoring/` (scorer, test/expected_files/diff/custom, suite)
-- `src/code_agent_runtime/reports/` (markdown, html)
+- `src/code_agent_runtime/scoring/` (scorer, test/expected_files/diff/custom, suite, regression)
+- `src/code_agent_runtime/reports/` (markdown, html, regression)
 - `tasks/`, `examples/` (example task definitions and fixtures)
-- `scripts/02_generate_report.py` (run the default suite, write reports)
+- `scripts/02_generate_report.py`, `scripts/03_regression_demo.py`
 - `docs/PLAN.md` (target layout and milestones)
 
 ## Open questions

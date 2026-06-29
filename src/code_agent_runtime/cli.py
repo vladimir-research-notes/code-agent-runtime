@@ -7,11 +7,13 @@ registry (``tools list`` / ``tools show``), the Milestone 4 runtime (``run``)
 with optional Milestone 5 trace recording (``run --trace``), the Milestone 6
 trace inspection/replay tooling (``trace show`` / ``trace report``), the
 Milestone 7 sandbox controls (enforced by default on ``run``, with
-``run --no-sandbox`` to disable and ``run --agent probe`` to exercise them), and
-the Milestone 8 scoring/eval suite (``eval run`` runs a task×agent matrix and
+``run --no-sandbox`` to disable and ``run --agent probe`` to exercise them), the
+Milestone 8 scoring/eval suite (``eval run`` runs a task×agent matrix and
 emits a result file and a Markdown/HTML report; ``eval report`` re-renders a saved
-result file). Later milestones add regression comparison and optional model
-adapters (see ``docs/PLAN.md``).
+result file), and the Milestone 9 regression/flakiness tooling (``eval compare``
+diffs two result files into improved/regressed/unchanged/flaky buckets; ``eval
+rerun`` re-runs the matrix N times and reports flaky keys). Later milestones add
+optional model adapters (see ``docs/PLAN.md``).
 """
 
 from __future__ import annotations
@@ -36,8 +38,8 @@ from . import traces as _traces
 
 # The milestone the runtime currently implements. Kept here so ``info`` can
 # report honest project status without scanning the filesystem.
-CURRENT_MILESTONE = "Milestone 8 — Scoring and evaluation reports"
-NEXT_MILESTONE = "Milestone 9 — Regression comparison and flakiness analysis"
+CURRENT_MILESTONE = "Milestone 9 — Regression comparison and flakiness analysis"
+NEXT_MILESTONE = "Milestone 10 — Optional cost-controlled LLM adapter"
 
 #: Default directory the ``tasks`` subcommands scan.
 DEFAULT_TASKS_DIR = "tasks"
@@ -331,6 +333,81 @@ def _add_eval_parser(subparsers: argparse._SubParsersAction) -> None:
         "--out", default=None, metavar="PATH", help="Write the report to PATH instead of stdout."
     )
     p_report.set_defaults(func=_cmd_eval_report)
+
+    p_compare = actions.add_parser(
+        "compare",
+        help="Diff two suite result files into improved/regressed/unchanged/flaky buckets.",
+    )
+    p_compare.add_argument("baseline", help="Path to the baseline suite result JSON.")
+    p_compare.add_argument("candidate", help="Path to the candidate suite result JSON.")
+    p_compare.add_argument(
+        "--out", default=None, metavar="PATH", help="Write the comparison as JSON to PATH."
+    )
+    p_compare.add_argument(
+        "--report",
+        default=None,
+        metavar="PATH",
+        help="Write the Markdown comparison report to PATH.",
+    )
+    p_compare.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the comparison as JSON to stdout instead of a Markdown report.",
+    )
+    p_compare.set_defaults(func=_cmd_eval_compare)
+
+    p_rerun = actions.add_parser(
+        "rerun",
+        help="Re-run the matrix N times and report flaky (non-deterministic) keys.",
+    )
+    p_rerun.add_argument(
+        "idents",
+        nargs="*",
+        help="Task ids/paths to include (default: every task under --dir).",
+    )
+    p_rerun.add_argument(
+        "--dir", default=DEFAULT_TASKS_DIR, help="Directory to scan (default: tasks/)."
+    )
+    p_rerun.add_argument(
+        "--agent",
+        choices=["mock", "scripted", "probe", "all"],
+        default="all",
+        help="Agent(s) to run (default: all).",
+    )
+    p_rerun.add_argument(
+        "--repeats", type=int, default=3, help="How many times to re-run the matrix (default: 3)."
+    )
+    p_rerun.add_argument(
+        "--no-sandbox",
+        action="store_true",
+        help="Disable sandbox-policy enforcement for the runs.",
+    )
+    p_rerun.add_argument(
+        "--max-steps",
+        type=int,
+        default=_runtime.RunConfig().max_steps,
+        help="Hard cap on agent steps per run (default: %(default)s).",
+    )
+    p_rerun.add_argument(
+        "--no-tests",
+        action="store_true",
+        help="Skip running each task's test command.",
+    )
+    p_rerun.add_argument(
+        "--out", default=None, metavar="PATH", help="Write the flakiness report as JSON to PATH."
+    )
+    p_rerun.add_argument(
+        "--report",
+        default=None,
+        metavar="PATH",
+        help="Write the Markdown flakiness report to PATH.",
+    )
+    p_rerun.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the flakiness report as JSON to stdout instead of Markdown.",
+    )
+    p_rerun.set_defaults(func=_cmd_eval_rerun)
 
 
 def _make_help_printer(parser: argparse.ArgumentParser):
@@ -677,6 +754,83 @@ def _cmd_eval_report(args: argparse.Namespace) -> int:
     else:
         print(text)
     return 0
+
+
+def _cmd_eval_compare(args: argparse.Namespace) -> int:
+    """Diff two suite result files — Milestone 9 regression comparison.
+
+    Exit code mirrors the verdict: 1 if any key regressed (a CI-friendly gate),
+    0 otherwise. A missing/malformed input file is a load error (exit 1) with a
+    message on stderr.
+    """
+    try:
+        baseline = _scoring.load_suite_result(args.baseline)
+        candidate = _scoring.load_suite_result(args.candidate)
+    except (OSError, ValueError) as exc:
+        print(f"could not load suite result: {exc}", file=sys.stderr)
+        return 1
+
+    comparison = _scoring.compare_suites(baseline, candidate)
+
+    if args.out:
+        written = _scoring.write_comparison(comparison, args.out)
+        print(f"comparison written: {written}", file=sys.stderr)
+    if args.report:
+        out = Path(args.report)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(_reports.regression_to_markdown(comparison), encoding="utf-8")
+        print(f"report written: {out}", file=sys.stderr)
+
+    if args.json:
+        print(json.dumps(comparison.to_dict(), indent=2))
+    else:
+        print(_reports.regression_to_markdown(comparison))
+
+    return 1 if comparison.has_regressions else 0
+
+
+def _cmd_eval_rerun(args: argparse.Namespace) -> int:
+    """Re-run the matrix N times and report flaky keys — Milestone 9 rerun mode.
+
+    Exit code is 1 if any key was flaky (non-deterministic across repeats), 0
+    otherwise. The deterministic baseline agents yield 0 flaky keys.
+    """
+    tasks = _select_eval_tasks(args)
+    if tasks is None:
+        return 1
+    if not tasks:
+        print(f"No tasks found under {args.dir}/.", file=sys.stderr)
+        return 1
+    if args.repeats < 1:
+        print(f"--repeats must be >= 1, got {args.repeats}", file=sys.stderr)
+        return 1
+
+    agents = _scoring.DEFAULT_AGENTS if args.agent == "all" else (args.agent,)
+    config = _runtime.RunConfig(
+        max_steps=args.max_steps,
+        run_tests=not args.no_tests,
+        enforce_sandbox=not args.no_sandbox,
+    )
+    suites = _scoring.run_repeated(
+        tasks, agents, repeats=args.repeats, config=config, label=f"dir={args.dir}"
+    )
+    report = _scoring.analyze_flakiness(suites, label=f"dir={args.dir}")
+
+    if args.out:
+        written = _scoring.write_flakiness(report, args.out)
+        print(f"flakiness written: {written}", file=sys.stderr)
+    if args.report:
+        out = Path(args.report)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(_reports.flakiness_to_markdown(report), encoding="utf-8")
+        print(f"report written: {out}", file=sys.stderr)
+
+    if args.json:
+        print(json.dumps(report.to_dict(), indent=2))
+    else:
+        print(_reports.flakiness_to_markdown(report))
+
+    return 1 if report.has_flakes else 0
 
 
 def main(argv: Sequence[str] | None = None) -> int:

@@ -101,3 +101,7 @@ def test_milestone_notes_present() -> None:
     assert (DOCS_DIR / "milestones" / "08-scoring-reports.md").is_file()
     assert (DOCS_DIR / "commits" / "08-scoring-reports.md").is_file()
     assert (DOCS_DIR / "review_notes" / "08-scoring-reports-human-review.md").is_file()
+    # Milestone 9 artifacts.
+    assert (DOCS_DIR / "milestones" / "09-regression-flakiness.md").is_file()
+    assert (DOCS_DIR / "commits" / "09-regression-flakiness.md").is_file()
+    assert (DOCS_DIR / "review_notes" / "09-regression-flakiness-human-review.md").is_file()

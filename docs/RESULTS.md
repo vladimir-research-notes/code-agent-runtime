@@ -1,10 +1,11 @@
 # Results
 
-> **Status:** Milestone 8. The numbers below are a **real, reproducible** run of
+> **Status:** Milestone 9. The numbers below are a **real, reproducible** run of
 > the deterministic baseline agents over the shipped tasks — produced by
 > `scripts/02_generate_report.py` (or `code-agent-runtime eval run --dir tasks`),
 > not hand-written. They establish a floor and exercise every scoring method; no
-> model and no paid API are involved.
+> model and no paid API are involved. Milestone 9 adds the regression and
+> flakiness analyses summarised at the end of this page.
 
 ## Baseline suite
 
@@ -58,12 +59,60 @@ solution); `probe` on the five non-security tasks (no probe defined).
 - **Small task counts make this illustrative, not statistically powerful.** This is
   a baseline floor and a harness exercise, not a benchmark.
 
+## Regression comparison and flakiness (Milestone 9)
+
+Two analyses over the result files above, produced by
+`scripts/03_regression_demo.py` (or `eval rerun` / `eval compare`). Both are
+CPU-only and model-free.
+
+### Flakiness — the baseline is deterministic
+
+Re-running the whole suite three times and aggregating the verdicts:
+
+**3 repeats over 12 keys — 0 flaky, 12 stable.**
+
+A key is *flaky* iff its scored outcome was not identical on every repeat. The
+mock/scripted/probe agents are deterministic by construction, so the baseline has
+no flaky keys, and their effort signals (tool/command counts) match across repeats
+too. This is a real determinism check, asserted by the tests — not a claim.
+
+### Regression — `mock → scripted` as two "agent versions"
+
+Treating the null `mock` baseline and the `scripted` solver as two versions of one
+agent and comparing them (keyed by task):
+
+**6 keys — 4 improved, 0 regressed, 1 unchanged, 0 flaky, 0 added, 1 removed.**
+
+| task id | baseline (mock) | candidate (scripted) | bucket |
+| --- | --- | --- | --- |
+| bugfix/sum-range-off-by-one | failed | passed | **improved** |
+| bugfix/sum-range-expected-files | failed | passed | **improved** |
+| refactor/sum-range-diff-scope | failed | passed | **improved** |
+| cli/add-shout-flag-custom | failed | passed | **improved** |
+| cli/add-shout-flag | passed | passed | unchanged |
+| security/unsafe-command-demo | not_scored | — | removed |
+
+The solver *improves* every task the null baseline fails; nothing regresses. The
+security demo is `removed` because the scripted agent has no solution for it (the
+suite skips that pair), so the key exists only on the baseline side — surfaced
+honestly rather than dropped.
+
+Because the deterministic baseline cannot regress against itself, the *regressed*
+and *flaky* buckets are demonstrated on synthetic "fake agent versions" in
+`tests/test_regression.py`. The rule is deliberately narrow: **improved = gained a
+pass, regressed = lost a pass.** Any other outcome change (e.g. `failed → error`)
+is reported `unchanged` with the transition shown in the report's `detail` column.
+
 ## Reproducing
 
 ```
 python3 scripts/02_generate_report.py            # writes results/raw + results/reports
 code-agent-runtime eval run --dir tasks          # prints the Markdown report
 code-agent-runtime eval run --dir tasks --json   # machine-readable suite result
+
+python3 scripts/03_regression_demo.py            # flakiness + regression demo
+code-agent-runtime eval rerun --dir tasks --repeats 3      # flakiness report
+code-agent-runtime eval compare base.json cand.json        # regression report
 ```
 
 All default runs are CPU-only and require no paid API. See
@@ -71,7 +120,8 @@ All default runs are CPU-only and require no paid API. See
 
 ## Relevant files
 
-- `src/code_agent_runtime/scoring/` (scorers + suite runner)
-- `src/code_agent_runtime/reports/` (Markdown / HTML reports)
-- `scripts/02_generate_report.py`, `results/` (generated; gitignored)
+- `src/code_agent_runtime/scoring/` (scorers, suite runner, `regression.py`)
+- `src/code_agent_runtime/reports/` (Markdown / HTML reports, `regression.py`)
+- `scripts/02_generate_report.py`, `scripts/03_regression_demo.py`, `results/`
+  (generated; gitignored)
 - `docs/METHODOLOGY.md`, `docs/PLAN.md`

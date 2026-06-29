@@ -26,7 +26,7 @@
 <main>
   <h1>Results</h1>
   <p class="lede">A real, reproducible baseline — produced by the suite runner, not hand-written.</p>
-  <p><span class="status done">status: baseline run (Milestone 8)</span></p>
+  <p><span class="status done">status: baseline run + regression/flakiness (Milestones 8–9)</span></p>
 
   <h2>Brief explanation</h2>
   <p>The deterministic baseline agents (<code>mock</code>, <code>scripted</code>, and
@@ -70,25 +70,56 @@
     <li>Small task counts make this illustrative, not a benchmark.</li>
   </ul>
 
+  <h2>Regression &amp; flakiness (Milestone 9)</h2>
+  <p>Two analyses over the result files above, produced by
+  <code>scripts/03_regression_demo.py</code> (or <code>eval rerun</code> / <code>eval
+  compare</code>) — CPU-only and model-free.</p>
+  <p><strong>Flakiness.</strong> Re-running the whole suite three times and aggregating the
+  verdicts gives <strong>3 repeats over 12 keys — 0 flaky, 12 stable</strong>. A key is flaky iff
+  its scored outcome was not identical on every repeat; the deterministic agents have none, and
+  their tool/command counts match across repeats too. This is a determinism check the tests
+  assert, not a claim.</p>
+  <p><strong>Regression.</strong> Comparing the null <code>mock</code> baseline against the
+  <code>scripted</code> solver as two &ldquo;agent versions&rdquo; (keyed by task) gives
+  <strong>6 keys — 4 improved, 0 regressed, 1 unchanged, 0 flaky, 0 added, 1 removed</strong>:</p>
+  <table>
+    <tr><th>task id</th><th>baseline (mock)</th><th>candidate (scripted)</th><th>bucket</th></tr>
+    <tr><td>bugfix/sum-range-off-by-one</td><td>failed</td><td>passed</td><td><strong>improved</strong></td></tr>
+    <tr><td>bugfix/sum-range-expected-files</td><td>failed</td><td>passed</td><td><strong>improved</strong></td></tr>
+    <tr><td>refactor/sum-range-diff-scope</td><td>failed</td><td>passed</td><td><strong>improved</strong></td></tr>
+    <tr><td>cli/add-shout-flag-custom</td><td>failed</td><td>passed</td><td><strong>improved</strong></td></tr>
+    <tr><td>cli/add-shout-flag</td><td>passed</td><td>passed</td><td>unchanged</td></tr>
+    <tr><td>security/unsafe-command-demo</td><td>not_scored</td><td>—</td><td>removed</td></tr>
+  </table>
+  <p>The solver improves every task the null baseline fails; nothing regresses. The security demo
+  is <code>removed</code> because the scripted agent has no solution for it (that pair is skipped),
+  so the key exists only on the baseline side — surfaced honestly, not dropped. Because the
+  deterministic baseline cannot regress against itself, the <em>regressed</em> and <em>flaky</em>
+  buckets are demonstrated on synthetic &ldquo;fake agent versions&rdquo; in
+  <code>tests/test_regression.py</code>; the rule is narrow — <em>improved</em> = gained a pass,
+  <em>regressed</em> = lost a pass.</p>
+
   <h2>Current implementation status</h2>
-  <p>Implemented. The canonical table lives in <code>docs/RESULTS.md</code>; see
+  <p>Implemented. The canonical narrative lives in <code>docs/RESULTS.md</code>; see
   <a href="evals.html">Evals</a> for the methodology. Re-run with
-  <code>scripts/02_generate_report.py</code>.</p>
+  <code>scripts/02_generate_report.py</code> and <code>scripts/03_regression_demo.py</code>.</p>
 
   <h2>Relevant files</h2>
   <ul class="files">
     <li>docs/RESULTS.md, docs/METHODOLOGY.md, docs/REPRODUCIBILITY.md</li>
-    <li>src/code_agent_runtime/scoring/, src/code_agent_runtime/reports/</li>
-    <li>scripts/02_generate_report.py, results/ (generated; gitignored)</li>
+    <li>src/code_agent_runtime/scoring/ (incl. regression.py), src/code_agent_runtime/reports/</li>
+    <li>scripts/02_generate_report.py, scripts/03_regression_demo.py, results/ (generated; gitignored)</li>
   </ul>
 
   <h2>Current test/result status</h2>
   <p>The numbers above are produced by the tested suite runner; the verdicts and tool/command
-  counts are deterministic across machines. CPU-only tests pass.</p>
+  counts are deterministic across machines. CPU-only tests pass, including the regression/flakiness
+  suite that asserts every comparison bucket and zero flaky keys on the real suite.</p>
 
   <h2>Open questions / limitations</h2>
-  <p>Results are illustrative on small task sets. Regression comparison across two result files
-  (improved / regressed / unchanged / flaky) arrives in Milestone 9.</p>
+  <p>Results are illustrative on small task sets. A &ldquo;0 regressions&rdquo; comparison means
+  no key lost a pass relative to the baseline — not that the candidate is correct. Flakiness here
+  is a small-sample smoke check, not a flake-probability estimate.</p>
 </main>
 <footer class="site">Code Agent Runtime — research/engineering scaffold. Built milestone by milestone.</footer>
 </body>

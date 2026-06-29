@@ -1,8 +1,8 @@
 # Evaluation methodology
 
-> **Status:** Milestone 8. Scoring, the suite runner, and result reports are
-> implemented; the deterministic baseline has been run — see
-> [`RESULTS.md`](RESULTS.md). Regression/flakiness analysis is Milestone 9.
+> **Status:** Milestone 9. Scoring, the suite runner, result reports, and
+> regression/flakiness analysis are implemented; the deterministic baseline has
+> been run — see [`RESULTS.md`](RESULTS.md).
 
 ## Goal
 
@@ -60,14 +60,39 @@ and **honest about uncertainty** — not to produce a leaderboard.
 
 Build artifacts (`__pycache__`, `*.pyc`) are ignored in diff-scope analysis.
 
+## Comparing runs: regression and flakiness
+
+Two result files (e.g. an agent before and after a change) are compared by
+`compare_suites`, keyed by `(task_id, agent)`. The headline signal is the pass/fail
+boolean:
+
+- **improved** — the key gained a pass it did not have;
+- **regressed** — the key lost a pass it had;
+- **unchanged** — neither gained nor lost a pass (any other outcome change, e.g.
+  `failed → error`, is recorded in the report's `detail`, not silently dropped);
+- **flaky** — a side's repeated records disagreed on outcome;
+- **added** / **removed** — the key exists in only one of the two files.
+
+*Flakiness* is measured by re-running the same suite N times (`run_repeated`, the
+*rerun mode*) and flagging any key whose scored outcome was not identical on every
+repeat (`analyze_flakiness`). Verdict flakiness deliberately ignores wall-clock
+runtime (always noisy); tool/command-count variation with a stable verdict is
+reported as a *signal* difference, not a flake. The deterministic baseline agents
+produce **zero** flaky keys — a determinism check, asserted by the tests.
+
+A "0 regressions" comparison means *no key lost a pass relative to the baseline* —
+not that the candidate is correct. Small repeat counts make flakiness a smoke
+check, not a flake-probability estimate.
+
 ## Current implementation status
 
 - [x] Scoring (`scoring/`), suite runner (`run_suite`), and Markdown/HTML reports
       (`reports/`) are implemented and exercised by the baseline in `RESULTS.md`.
-- [ ] Regression comparison and flakiness analysis — Milestone 9.
+- [x] Regression comparison and flakiness analysis (`scoring/regression.py`,
+      `run_repeated`, `eval compare` / `eval rerun`) — Milestone 9.
 
 ## Relevant files
 
-- `src/code_agent_runtime/scoring/`, `src/code_agent_runtime/reports/`
-- `scripts/02_generate_report.py`
+- `src/code_agent_runtime/scoring/` (incl. `regression.py`), `src/code_agent_runtime/reports/`
+- `scripts/02_generate_report.py`, `scripts/03_regression_demo.py`
 - `docs/RESEARCH_QUESTIONS.md`, `docs/RESULTS.md`, `docs/PLAN.md`

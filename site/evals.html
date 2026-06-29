@@ -26,7 +26,7 @@
 <main>
   <h1>Evals</h1>
   <p class="lede">Reproducible, inspectable, honest measurement — not a leaderboard.</p>
-  <p><span class="status done">status: implemented (Milestone 8) — scoring, suite runner, reports</span></p>
+  <p><span class="status done">status: implemented (Milestones 8–9) — scoring, suite runner, reports, regression &amp; flakiness</span></p>
 
   <h2>Brief explanation</h2>
   <p>An eval runs one or more agents over a suite of tasks and <strong>scores</strong> each
@@ -55,23 +55,51 @@
 code-agent-runtime eval run --dir tasks --json          # machine-readable result
 code-agent-runtime eval run --dir tasks --out r.json --report r.html
 code-agent-runtime eval report r.json                   # re-render a saved result</code></pre>
-  <p>Regression comparison (improved / regressed / unchanged / flaky across two result files)
-  is Milestone 9; the result-file schema is versioned so it can consume these files.</p>
+  <h2>Regression comparison &amp; flakiness (Milestone 9)</h2>
+  <p>Two analyses over the result files above. <code>compare_suites</code> diffs a
+  <em>baseline</em> result against a <em>candidate</em>, keyed by <code>(task id, agent)</code>,
+  and buckets every key. The headline signal is pass/fail: <em>improved</em> = gained a pass,
+  <em>regressed</em> = lost one; any other outcome change (e.g. <code>failed → error</code>) is
+  <em>unchanged</em> with the transition kept in <code>detail</code>. A key that flipped across
+  repeats is <em>flaky</em>; a key present on only one side is <em>added</em>/<em>removed</em>.</p>
+  <table>
+    <tr><th>Bucket</th><th>Meaning</th></tr>
+    <tr><td><code>improved</code></td><td>the key gained a pass it did not have.</td></tr>
+    <tr><td><code>regressed</code></td><td>the key lost a pass it had (the natural CI gate).</td></tr>
+    <tr><td><code>unchanged</code></td><td>neither gained nor lost a pass.</td></tr>
+    <tr><td><code>flaky</code></td><td>a side's repeated runs disagreed on outcome.</td></tr>
+    <tr><td><code>added</code> / <code>removed</code></td><td>the key exists in only one of the two files.</td></tr>
+  </table>
+  <p><em>Flakiness</em> is measured by re-running the same suite N times (<em>rerun mode</em>) and
+  flagging any key whose scored outcome was not identical on every repeat. Verdict flakiness
+  ignores wall-clock runtime; tool/command-count variation with a stable verdict is reported as a
+  signal difference, not a flake. The deterministic mock/scripted/probe agents produce
+  <strong>zero</strong> flaky keys — a determinism check the tests assert.</p>
+  <pre><code>code-agent-runtime eval rerun --dir tasks --repeats 3      # flakiness report (exit 1 if any flake)
+code-agent-runtime eval compare base.json cand.json        # regression report (exit 1 if any regression)
+python3 scripts/03_regression_demo.py                      # one-shot demo, writes results/</code></pre>
+  <p>A &ldquo;0 regressions&rdquo; comparison means <em>no key lost a pass relative to the
+  baseline</em> — not that the candidate is correct. Because the deterministic baseline cannot
+  regress against itself, the <em>regressed</em> and <em>flaky</em> buckets are demonstrated on
+  synthetic &ldquo;fake agent versions&rdquo; in the tests. See <a href="results.html">Results</a>.</p>
 
   <h2>Current implementation status</h2>
   <p>Implemented. <code>scoring/</code> provides the five scorers, the custom-scorer registry
-  hook, and the suite runner (<code>run_suite</code> → a JSON <code>SuiteResult</code>);
-  <code>reports/</code> renders Markdown and standalone HTML. The runtime loop delegates
-  scoring to this layer, scoring before the workspace is cleaned up so filesystem checks work.
-  See <a href="results.html">Results</a> for the real baseline numbers.</p>
+  hook, the suite runner (<code>run_suite</code> → a JSON <code>SuiteResult</code>), rerun mode
+  (<code>run_repeated</code>), and the regression/flakiness analyses
+  (<code>compare_suites</code>, <code>analyze_flakiness</code> in <code>regression.py</code>);
+  <code>reports/</code> renders Markdown and standalone HTML for suites, and Markdown for
+  comparisons and flakiness. The runtime loop delegates scoring to this layer, scoring before
+  the workspace is cleaned up so filesystem checks work. See <a href="results.html">Results</a>
+  for the real baseline numbers.</p>
 
   <h2>Relevant files</h2>
   <ul class="files">
-    <li>src/code_agent_runtime/scoring/ (scorer, test/expected_files/diff/custom, suite)</li>
-    <li>src/code_agent_runtime/reports/ (markdown, html)</li>
+    <li>src/code_agent_runtime/scoring/ (scorer, test/expected_files/diff/custom, suite, regression)</li>
+    <li>src/code_agent_runtime/reports/ (markdown, html, regression)</li>
     <li>src/code_agent_runtime/runtime/agent_loop.py (delegates scoring)</li>
-    <li>scripts/02_generate_report.py, docs/METHODOLOGY.md, docs/RESULTS.md</li>
-    <li>tests/test_scoring.py, tests/test_eval.py</li>
+    <li>scripts/02_generate_report.py, scripts/03_regression_demo.py, docs/METHODOLOGY.md, docs/RESULTS.md</li>
+    <li>tests/test_scoring.py, tests/test_eval.py, tests/test_regression.py</li>
     <li>results/ (generated by the suite runner; gitignored)</li>
   </ul>
 
@@ -79,8 +107,12 @@ code-agent-runtime eval report r.json                   # re-render a saved resu
   <p><code>tests/test_scoring.py</code> unit-tests every scorer (pass and fail paths, edge
   cases) and the <code>scoring_config</code> schema validation; <code>tests/test_eval.py</code>
   covers the suite runner, JSON round-trip, the Markdown/HTML reports, and the
-  <code>eval</code> CLI. The full CPU-only suite passes. The baseline run shows the scripted
-  agent passing every solvable task and the mock agent failing the ones that require a change.</p>
+  <code>eval</code> CLI; <code>tests/test_regression.py</code> covers every comparison bucket on
+  synthetic agent versions, flakiness detection, the determinism check (re-running the real suite
+  → zero flaky keys), the JSON round-trips, the Markdown reports, and the
+  <code>eval compare</code> / <code>eval rerun</code> CLI. The full CPU-only suite passes. The
+  baseline run shows the scripted agent passing every solvable task and the mock agent failing
+  the ones that require a change.</p>
 
   <h2>Open questions / limitations</h2>
   <ul>
@@ -88,6 +120,8 @@ code-agent-runtime eval report r.json                   # re-render a saved resu
     <li>A passing test command is evidence, not proof, of a correct change — and is bounded by
       the fixture's test coverage (see the Results caveats).</li>
     <li><code>diff_constraint</code> checks scope, not correctness; combine via a <code>custom</code> scorer.</li>
+    <li>Two single-run files can't reveal flakiness; flakiness needs repeats. Regression/flakiness
+      reports are Markdown + JSON only this milestone (no standalone HTML yet).</li>
   </ul>
 </main>
 <footer class="site">Code Agent Runtime — research/engineering scaffold. Built milestone by milestone.</footer>

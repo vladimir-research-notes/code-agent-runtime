@@ -223,6 +223,67 @@ def run_suite(
     return SuiteResult(records=tuple(records), skipped=tuple(skipped), label=label)
 
 
+def run_repeated(
+    tasks: Sequence[Task],
+    agents: Sequence[str] = DEFAULT_AGENTS,
+    *,
+    repeats: int = 3,
+    config: Any = None,
+    registry: Any = None,
+    clock: Callable[[], float] | None = None,
+    label: str | None = None,
+) -> tuple[SuiteResult, ...]:
+    """Run the same suite ``repeats`` times — the *rerun mode* for flakiness.
+
+    Returns one :class:`SuiteResult` per repeat (each a normal single-run result),
+    suitable for :func:`~code_agent_runtime.scoring.analyze_flakiness`. The config
+    and registry are built once and reused across repeats so the only thing that
+    varies between them is genuine run-to-run non-determinism — of which the
+    deterministic baseline agents have none. Each repeat is labelled ``"<label>
+    #i"`` so a merged result stays traceable.
+    """
+    from ..runtime import RunConfig  # lazy: avoids the runtime→scoring cycle
+    from ..tools import build_registry
+
+    if repeats < 1:
+        raise ValueError(f"repeats must be >= 1, got {repeats}")
+    config = config or RunConfig()
+    registry = registry or build_registry()
+    base_label = label or "rerun"
+    return tuple(
+        run_suite(
+            tasks,
+            agents,
+            config=config,
+            registry=registry,
+            clock=clock,
+            label=f"{base_label} #{i + 1}",
+        )
+        for i in range(repeats)
+    )
+
+
+def merge_suites(suites: Sequence[SuiteResult], *, label: str | None = None) -> SuiteResult:
+    """Concatenate several suite results into one multi-record :class:`SuiteResult`.
+
+    The merged result keeps every record (so a key repeated across the inputs
+    appears multiple times) and the ``skipped`` set of the first input. Feeding a
+    merged rerun result to :func:`~code_agent_runtime.scoring.compare_suites`
+    surfaces within-side flakiness; on its own it round-trips like any suite
+    result. Raises on an empty input.
+    """
+    if not suites:
+        raise ValueError("merge_suites requires at least one suite")
+    records: list[EvalRecord] = []
+    for suite in suites:
+        records.extend(suite.records)
+    return SuiteResult(
+        records=tuple(records),
+        skipped=suites[0].skipped,
+        label=label if label is not None else suites[0].label,
+    )
+
+
 def write_suite_result(suite: SuiteResult, path: str | Path) -> Path:
     """Write ``suite`` to ``path`` as JSON (creating parent directories)."""
     out = Path(path)
