@@ -89,8 +89,9 @@ code-agent-runtime tasks show bugfix/sum-range-off-by-one --dir tasks</code></pr
   <ul>
     <li>How to express diff/scope constraints declaratively (the <code>diff_constraint</code>
       scoring method is named but not yet implemented; scoring lands in Milestone 8).</li>
-    <li><code>allowed_tools</code> is validated against a hard-coded vocabulary that must stay
-      in sync with the Milestone 3 tool registry.</li>
+    <li><code>allowed_tools</code> is validated against the task schema's vocabulary; a test
+      now asserts that vocabulary equals the live Milestone 3 tool registry
+      (<code>REGISTERED_TOOL_NAMES</code>), so the two cannot drift apart.</li>
     <li>Fixture paths are resolved relative to the task file; repo-root-relative resolution is
       an alternative not yet chosen.</li>
   </ul>

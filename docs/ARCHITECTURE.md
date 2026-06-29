@@ -56,13 +56,17 @@ task ──▶ workspace ──▶ agent loop ──▶ tools ──▶ tests �
 - [x] Environment check and repository hygiene scanner (Milestone 1).
 - [x] Versioned task format — schema, loader (JSON + optional YAML), fixture
       resolution, example tasks, and `tasks list`/`show` CLI (Milestone 2).
-- [ ] Tool registry, runtime loop, tracing, sandbox, scoring, reports,
-      adapters — pending later milestones.
+- [x] Tool registry and seven core tools — read/write/patch/shell/git-diff/
+      tests/search, with structured results, workspace confinement, and a
+      `tools list`/`show` CLI (Milestone 3).
+- [ ] Runtime loop, tracing, sandbox, scoring, reports, adapters — pending later
+      milestones.
 
 ## Relevant files
 
 - `src/code_agent_runtime/__init__.py`, `src/code_agent_runtime/cli.py`
 - `src/code_agent_runtime/tasks/` (schema, loader, fixtures)
+- `src/code_agent_runtime/tools/` (registry, base, seven core tools)
 - `tasks/`, `examples/` (example task definitions and fixtures)
 - `docs/PLAN.md` (target layout and milestones)
 

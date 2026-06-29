@@ -29,7 +29,7 @@
   <em>around</em> coding agents: task setup, tools, permissions, execution, tracing, replay,
   scoring, regression comparison, and reports.</p>
 
-  <p><span class="status scaffold">status: Milestone 2 — versioned task format</span></p>
+  <p><span class="status scaffold">status: Milestone 3 — tool registry and core tools</span></p>
 
   <h2>Brief explanation</h2>
   <p>Modern coding agents need a runtime, not just a prompt. This project builds the
@@ -52,7 +52,10 @@
     <li>Environment check and repository hygiene scanner — <strong>done</strong> (Milestone 1).</li>
     <li>Versioned task format (schema, loader, example tasks, <code>tasks</code> CLI) —
       <strong>done</strong> (Milestone 2).</li>
-    <li>Tools, runtime loop, sandbox, tracing, scoring, reports — <em>pending</em>.</li>
+    <li>Tool registry and seven core tools (read/write/patch/shell/git-diff/tests/search,
+      with structured results and a <code>tools</code> CLI) — <strong>done</strong>
+      (Milestone 3).</li>
+    <li>Runtime loop, sandbox, tracing, scoring, reports — <em>pending</em>.</li>
   </ul>
 
   <h2>Relevant files</h2>
@@ -61,6 +64,7 @@
     <li>src/code_agent_runtime/environment.py</li>
     <li>src/code_agent_runtime/hygiene.py</li>
     <li>src/code_agent_runtime/tasks/ (schema, loader, fixtures)</li>
+    <li>src/code_agent_runtime/tools/ (registry, base, seven core tools)</li>
     <li>tasks/, examples/</li>
     <li>scripts/00_check_environment.py, scripts/04_check_repo_hygiene.py</li>
     <li>docs/PLAN.md</li>
@@ -68,8 +72,9 @@
 
   <h2>Current test/result status</h2>
   <p>CPU-only tests pass (<code>python3 -m pytest -q</code>), including environment,
-  hygiene-scanner, and task-format tests plus a guard that asserts the committed tree is
-  clean. No evaluations have been run; see <a href="results.html">Results</a>.</p>
+  hygiene-scanner, task-format, and tool tests (per-tool unit tests plus an integration test
+  that fixes a fixture bug end to end) and a guard that asserts the committed tree is clean.
+  No evaluations have been run; see <a href="results.html">Results</a>.</p>
 
   <h2>Open questions / limitations</h2>
   <p>No sandbox or evaluations are implemented yet. This is not a production-grade

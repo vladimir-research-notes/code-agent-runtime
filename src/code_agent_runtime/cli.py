@@ -1,10 +1,11 @@
 """Command-line interface for Code Agent Runtime.
 
 The CLI is intentionally minimal at this stage. It exposes version/status
-commands, the Milestone 1 operational checks (``env-check``, ``hygiene``), and
-the Milestone 2 task tools (``tasks list`` / ``tasks show``). Task running,
-tracing, replay, scoring, and reporting subcommands are added in later
-milestones (see ``docs/PLAN.md``).
+commands, the Milestone 1 operational checks (``env-check``, ``hygiene``), the
+Milestone 2 task tools (``tasks list`` / ``tasks show``), and the Milestone 3
+tool registry (``tools list`` / ``tools show``). Task running, tracing, replay,
+scoring, and reporting subcommands are added in later milestones (see
+``docs/PLAN.md``).
 """
 
 from __future__ import annotations
@@ -19,11 +20,12 @@ from . import PROJECT_NAME, PROJECT_SUMMARY, __version__
 from . import environment as _environment
 from . import hygiene as _hygiene
 from . import tasks as _tasks
+from . import tools as _tools
 
 # The milestone the runtime currently implements. Kept here so ``info`` can
 # report honest project status without scanning the filesystem.
-CURRENT_MILESTONE = "Milestone 2 — Versioned task format"
-NEXT_MILESTONE = "Milestone 3 — Tool registry and core tools"
+CURRENT_MILESTONE = "Milestone 3 — Tool registry and core tools"
+NEXT_MILESTONE = "Milestone 4 — Local runtime state machine"
 
 #: Default directory the ``tasks`` subcommands scan.
 DEFAULT_TASKS_DIR = "tasks"
@@ -89,6 +91,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_hyg.set_defaults(func=_cmd_hygiene)
 
     _add_tasks_parser(subparsers)
+    _add_tools_parser(subparsers)
 
     return parser
 
@@ -117,6 +120,25 @@ def _add_tasks_parser(subparsers: argparse._SubParsersAction) -> None:
     )
     p_show.add_argument("--json", action="store_true", help="Emit the task as JSON.")
     p_show.set_defaults(func=_cmd_tasks_show)
+
+
+def _add_tools_parser(subparsers: argparse._SubParsersAction) -> None:
+    """Add the ``tools`` command group (``list`` / ``show``)."""
+    p_tools = subparsers.add_parser(
+        "tools",
+        help="List and inspect the registered structured tools.",
+    )
+    p_tools.set_defaults(func=_make_help_printer(p_tools))
+    actions = p_tools.add_subparsers(dest="tools_command", metavar="<action>")
+
+    p_list = actions.add_parser("list", help="List registered tools.")
+    p_list.add_argument("--json", action="store_true", help="Emit the listing as JSON.")
+    p_list.set_defaults(func=_cmd_tools_list)
+
+    p_show = actions.add_parser("show", help="Show one tool's spec (parameters).")
+    p_show.add_argument("name", help="Tool name (e.g. read_file).")
+    p_show.add_argument("--json", action="store_true", help="Emit the spec as JSON.")
+    p_show.set_defaults(func=_cmd_tools_show)
 
 
 def _make_help_printer(parser: argparse.ArgumentParser):
@@ -247,6 +269,46 @@ def _format_task(task: _tasks.Task) -> str:
         "  prompt        :",
     ]
     lines += [f"    {line}" for line in textwrap.wrap(task.prompt, width=80)]
+    return "\n".join(lines)
+
+
+def _cmd_tools_list(args: argparse.Namespace) -> int:
+    registry = _tools.build_registry()
+    specs = registry.specs()
+    if args.json:
+        print(json.dumps({"count": len(specs), "tools": [s.to_dict() for s in specs]}, indent=2))
+        return 0
+    print(f"Registered tools ({len(specs)}):\n")
+    width = max((len(s.name) for s in specs), default=0)
+    for spec in specs:
+        print(f"  {spec.name:<{width}}  [{spec.category:<5}] {spec.summary}")
+    return 0
+
+
+def _cmd_tools_show(args: argparse.Namespace) -> int:
+    registry = _tools.build_registry()
+    try:
+        spec = registry.get(args.name).spec
+    except KeyError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps(spec.to_dict(), indent=2))
+        return 0
+    print(_format_tool_spec(spec))
+    return 0
+
+
+def _format_tool_spec(spec: _tools.ToolSpec) -> str:
+    lines = [
+        f"Tool: {spec.name}",
+        f"  category : {spec.category}",
+        f"  summary  : {spec.summary}",
+        "  params   :" if spec.params else "  params   : (none)",
+    ]
+    for param in spec.params:
+        req = "required" if param.required else "optional"
+        lines.append(f"    - {param.name} ({param.type}, {req}): {param.description}")
     return "\n".join(lines)
 
 

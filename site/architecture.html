@@ -26,7 +26,7 @@
 <main>
   <h1>Architecture</h1>
   <p class="lede">How a versioned task and an agent become a scored, replayable trace.</p>
-  <p><span class="status scaffold">status: Milestone 0 — design target; only the scaffold exists</span></p>
+  <p><span class="status scaffold">status: Milestone 3 — tasks and tools implemented; runtime/tracing/sandbox pending</span></p>
 
   <h2>Brief explanation</h2>
   <p>The runtime is an explicit pipeline. Each stage has a clear input and output so that
@@ -49,24 +49,59 @@
   <p>Design principles: deterministic-first, everything-is-traced, separation of policy and
   mechanism, and no hidden cost.</p>
 
+  <h2>Core tools (Milestone 3)</h2>
+  <p>Tools are the only way an agent acts on a workspace. Every tool shares one shape — a
+  static <code>ToolSpec</code>, a validated <code>run()</code> entry point, and a
+  JSON-serialisable <code>ToolResult</code> — so the runtime can dispatch them uniformly and
+  the tracer can record them faithfully. A <code>ToolRegistry</code> maps names to tools and
+  dispatches a <code>ToolCall</code>. Path-taking tools are confined to one workspace
+  directory; subprocess tools bound their output and time and run <strong>without a
+  shell</strong>.</p>
+  <table>
+    <tr><th>Tool</th><th>Category</th><th>What it returns</th></tr>
+    <tr><td>read_file</td><td>read</td><td>content, bytes, lines, binary/truncated flags</td></tr>
+    <tr><td>search_repo</td><td>read</td><td>matching lines (path/line/text), counts</td></tr>
+    <tr><td>git_diff</td><td>read</td><td>unified diff, per-file +/- counts, untracked files</td></tr>
+    <tr><td>write_file</td><td>write</td><td>bytes written, created vs. overwrote</td></tr>
+    <tr><td>apply_patch</td><td>write</td><td>per-file create/modify/delete, +/- counts</td></tr>
+    <tr><td>run_shell</td><td>exec</td><td>argv, exit code, stdout/stderr, timed-out flag</td></tr>
+    <tr><td>run_tests</td><td>exec</td><td>as run_shell, plus a <code>passed</code> boolean</td></tr>
+  </table>
+  <p>The registry's <code>REGISTERED_TOOL_NAMES</code> is the authoritative tool vocabulary;
+  a test asserts it equals the task schema's <code>KNOWN_TOOLS</code>, so a task can never
+  request a tool that does not exist.</p>
+
   <h2>Current implementation status</h2>
   <ul>
-    <li>Package scaffold and CLI exist.</li>
-    <li>All pipeline subsystems are pending later milestones.</li>
+    <li>Package scaffold and CLI — done.</li>
+    <li>Versioned task format (Milestone 2) — done.</li>
+    <li>Tool registry and seven core tools (Milestone 3) — done.</li>
+    <li>Runtime loop, tracing, sandbox, scoring, reports, adapters — pending.</li>
   </ul>
 
   <h2>Relevant files</h2>
   <ul class="files">
     <li>docs/ARCHITECTURE.md</li>
     <li>src/code_agent_runtime/cli.py</li>
+    <li>src/code_agent_runtime/tasks/ (schema, loader, fixtures)</li>
+    <li>src/code_agent_runtime/tools/ (base, registry, seven tools, _exec)</li>
+    <li>tests/test_tools.py</li>
     <li>docs/PLAN.md</li>
   </ul>
 
   <h2>Current test/result status</h2>
-  <p>Scaffold-layout tests assert the documented skeleton exists. No runtime behavior to test yet.</p>
+  <p>Scaffold-layout, task-format, and tool tests pass under
+  <code>python3 -m pytest -q</code>. <code>tests/test_tools.py</code> covers each tool,
+  workspace confinement, argument validation, the registry, the CLI, and an integration test
+  that fixes the <code>tiny_python_bug</code> fixture end to end (read → search → patch →
+  run tests). Tests needing <code>git</code> skip when it is absent.</p>
 
   <h2>Open questions / limitations</h2>
   <ul>
+    <li>Tools provide <strong>workspace confinement only</strong> — no process isolation,
+      resource limits, or network policy yet. That is Milestone 7 (sandbox).</li>
+    <li><code>apply_patch</code> applies exact-context unified diffs (no fuzzy matching, no
+      binary patches, no rename detection).</li>
     <li>What is the minimal trace schema that still supports faithful replay?</li>
     <li>Where should the policy/mechanism boundary sit for shell execution?</li>
   </ul>
