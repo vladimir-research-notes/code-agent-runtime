@@ -8,16 +8,18 @@ infrastructure *around* coding agents — task setup, tools, permissions,
 execution, tracing, replay, scoring, regression comparison, and reports. It is
 **not** a tutorial, a clone of a commercial tool, or a benchmark leaderboard.
 
-> Status: **Milestone 5 — Trace recorder.** This repository is being built
-> milestone by milestone (see [`docs/PLAN.md`](docs/PLAN.md)). The package, docs,
-> website, packaging, and tests exist, plus an environment check, a repository
-> hygiene scanner, a versioned task format (schema, loader, example tasks, `tasks`
-> CLI), a tool registry with seven structured core tools (`tools` CLI), a runtime
-> loop that drives mock and scripted agents over a task (workspace preparation,
-> tool gating, test execution, minimal scoring, `run` CLI), and structured run
-> tracing (a JSON trace schema, an opt-in recorder driven by the run loop, and
-> `run --trace`). Replay, the sandbox, full scoring, and reports are not yet
-> implemented.
+> Status: **Milestone 6 — Replay and debugging tools.** This repository is being
+> built milestone by milestone (see [`docs/PLAN.md`](docs/PLAN.md)). The package,
+> docs, website, packaging, and tests exist, plus an environment check, a
+> repository hygiene scanner, a versioned task format (schema, loader, example
+> tasks, `tasks` CLI), a tool registry with seven structured core tools (`tools`
+> CLI), a runtime loop that drives mock and scripted agents over a task (workspace
+> preparation, tool gating, test execution, minimal scoring, `run` CLI),
+> structured run tracing (a JSON trace schema, an opt-in recorder driven by the
+> run loop, and `run --trace`), and trace replay/debugging tooling (reconstruct a
+> run from its trace and render a text summary or Markdown report, via
+> `trace show` / `trace report`). The sandbox, full scoring, and reports are not
+> yet implemented.
 
 ## Design constraints
 
@@ -135,6 +137,29 @@ Captured command output is **not** redacted yet, so a trace may contain whatever
 a command printed; do not persist traces of untrusted commands to a shared
 location until the secret scanner lands (Milestone 7). The default `traces/`
 destination is gitignored.
+
+### Inspecting and replaying a trace (Milestone 6)
+
+`replay` here means **reconstruction, not re-execution**: it reads a stored
+trace and rebuilds the action timeline, the tool calls, the diff, the tests, and
+the *failure point* — the anomaly (a blocked or failed tool, a failing test
+command, a run that errored) that best explains the verdict. A run that passed
+but logged an anomaly along the way has none, which is exactly how a verdict can
+hide a failure mode.
+
+```bash
+# Reconstruct and summarise a trace (text), or emit the structured ReplayedRun:
+PYTHONPATH=src python3 -m code_agent_runtime trace show traces/<trace_id>.trace.json
+PYTHONPATH=src python3 -m code_agent_runtime trace show traces/<trace_id>.trace.json --json
+
+# Generate a Markdown report (to stdout, or to a file with --out):
+PYTHONPATH=src python3 -m code_agent_runtime trace report traces/<trace_id>.trace.json --out report.md
+```
+
+`trace show` / `trace report` re-run nothing — no workspace, subprocess, or
+network. They are inspectors: they exit non-zero only on a missing or malformed
+trace, not on a failed run. Rendered output is **not** redacted either, so the
+same don't-publish-untrusted-runs caveat applies until Milestone 7.
 
 Optionally install the package and dev extras in a virtual environment:
 

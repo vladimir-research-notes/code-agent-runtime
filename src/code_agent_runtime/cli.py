@@ -3,9 +3,10 @@
 The CLI is intentionally minimal at this stage. It exposes version/status
 commands, the Milestone 1 operational checks (``env-check``, ``hygiene``), the
 Milestone 2 task tools (``tasks list`` / ``tasks show``), the Milestone 3 tool
-registry (``tools list`` / ``tools show``), and the Milestone 4 runtime (``run``)
-with optional Milestone 5 trace recording (``run --trace``). Replay, full
-scoring, and suite reporting subcommands are added in later milestones (see
+registry (``tools list`` / ``tools show``), the Milestone 4 runtime (``run``)
+with optional Milestone 5 trace recording (``run --trace``), and the Milestone 6
+trace inspection/replay tooling (``trace show`` / ``trace report``). Full scoring
+and suite reporting subcommands are added in later milestones (see
 ``docs/PLAN.md``).
 """
 
@@ -16,6 +17,7 @@ import json
 import sys
 import textwrap
 from collections.abc import Sequence
+from pathlib import Path
 
 from . import PROJECT_NAME, PROJECT_SUMMARY, __version__
 from . import agents as _agents
@@ -28,8 +30,8 @@ from . import traces as _traces
 
 # The milestone the runtime currently implements. Kept here so ``info`` can
 # report honest project status without scanning the filesystem.
-CURRENT_MILESTONE = "Milestone 5 — Trace recorder"
-NEXT_MILESTONE = "Milestone 6 — Replay and debugging tools"
+CURRENT_MILESTONE = "Milestone 6 — Replay and debugging tools"
+NEXT_MILESTONE = "Milestone 7 — Permission policies and sandbox controls"
 
 #: Default directory the ``tasks`` subcommands scan.
 DEFAULT_TASKS_DIR = "tasks"
@@ -97,6 +99,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_tasks_parser(subparsers)
     _add_tools_parser(subparsers)
     _add_run_parser(subparsers)
+    _add_trace_parser(subparsers)
 
     return parser
 
@@ -192,6 +195,45 @@ def _add_run_parser(subparsers: argparse._SubParsersAction) -> None:
     )
     p_run.add_argument("--json", action="store_true", help="Emit the run result as JSON.")
     p_run.set_defaults(func=_cmd_run)
+
+
+def _add_trace_parser(subparsers: argparse._SubParsersAction) -> None:
+    """Add the ``trace`` command group (``show`` / ``report``).
+
+    These reconstruct a run from a stored trace *without re-executing it* — the
+    Milestone 6 replay/debugging tooling.
+    """
+    p_trace = subparsers.add_parser(
+        "trace",
+        help="Inspect and replay recorded run traces (timeline, diff, tests, failure point).",
+    )
+    p_trace.set_defaults(func=_make_help_printer(p_trace))
+    actions = p_trace.add_subparsers(dest="trace_command", metavar="<action>")
+
+    p_show = actions.add_parser(
+        "show",
+        help="Reconstruct and summarise a trace: timeline, tool calls, diff, tests, failure point.",
+    )
+    p_show.add_argument("path", help="Path to a recorded trace (a .trace.json file).")
+    p_show.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the structured reconstruction (ReplayedRun) as JSON instead of text.",
+    )
+    p_show.set_defaults(func=_cmd_trace_show)
+
+    p_report = actions.add_parser(
+        "report",
+        help="Generate a Markdown report from a trace.",
+    )
+    p_report.add_argument("path", help="Path to a recorded trace (a .trace.json file).")
+    p_report.add_argument(
+        "--out",
+        default=None,
+        metavar="PATH",
+        help="Write the Markdown report to PATH instead of stdout.",
+    )
+    p_report.set_defaults(func=_cmd_trace_report)
 
 
 def _make_help_printer(parser: argparse.ArgumentParser):
@@ -409,6 +451,47 @@ def _cmd_run(args: argparse.Namespace) -> int:
         return 2
     if result.outcome == _runtime.RunOutcome.FAILED:
         return 1
+    return 0
+
+
+def _load_trace_or_report(path: str) -> _traces.Trace | None:
+    """Load a trace for an inspection command, or print an error and return None.
+
+    A trace inspector should fail loudly on a missing or malformed file rather
+    than crash, so the loader's exceptions are caught and turned into a readable
+    stderr message; the caller maps ``None`` to exit code 1.
+    """
+    try:
+        return _traces.load_trace(path)
+    except (OSError, ValueError, KeyError) as exc:
+        print(f"could not load trace {path!r}: {exc}", file=sys.stderr)
+        return None
+
+
+def _cmd_trace_show(args: argparse.Namespace) -> int:
+    trace = _load_trace_or_report(args.path)
+    if trace is None:
+        return 1
+    if args.json:
+        print(json.dumps(_traces.replay_trace(trace).to_dict(), indent=2))
+    else:
+        print(_traces.summarize_trace(trace))
+    return 0
+
+
+def _cmd_trace_report(args: argparse.Namespace) -> int:
+    trace = _load_trace_or_report(args.path)
+    if trace is None:
+        return 1
+    markdown = _traces.trace_to_markdown(trace)
+    if args.out:
+        out = Path(args.out)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(markdown, encoding="utf-8")
+        # Path to stderr so a redirected stdout stays the report (if any).
+        print(f"report written: {out}", file=sys.stderr)
+    else:
+        print(markdown)
     return 0
 
 

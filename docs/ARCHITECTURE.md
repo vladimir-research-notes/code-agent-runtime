@@ -1,9 +1,9 @@
 # Architecture
 
-> **Status:** Milestone 5. Tasks, tools, the runtime loop, and structured run
-> tracing are implemented; sandbox, replay, full scoring, reports, and adapters
-> are filled in milestone by milestone (see [`PLAN.md`](PLAN.md)). The component
-> boundaries below are the design target.
+> **Status:** Milestone 6. Tasks, tools, the runtime loop, structured run
+> tracing, and trace replay/summarise tooling are implemented; sandbox, full
+> scoring, reports, and adapters are filled in milestone by milestone (see
+> [`PLAN.md`](PLAN.md)). The component boundaries below are the design target.
 
 ## Overview
 
@@ -67,8 +67,11 @@ task ──▶ workspace ──▶ agent loop ──▶ tools ──▶ tests �
       + embedded result), an opt-in `TraceRecorder` the run loop drives,
       `record_run`/`write_trace`/`load_trace`, and a `run --trace` CLI
       (Milestone 5). Captured output is not redacted yet (Milestone 7).
-- [ ] Replay, sandbox, full scoring, reports, adapters — pending later
-      milestones.
+- [x] Trace replay/debugging tooling — `replay_trace` reconstructs a run from its
+      trace (timeline, tool calls, diff, tests, anomalies, failure point) without
+      re-executing; `summarize_trace`/`trace_to_markdown` render it; `trace show`
+      and `trace report` CLI (Milestone 6). Rendered output is not redacted yet.
+- [ ] Sandbox, full scoring, reports, adapters — pending later milestones.
 
 ## Relevant files
 
@@ -77,7 +80,7 @@ task ──▶ workspace ──▶ agent loop ──▶ tools ──▶ tests �
 - `src/code_agent_runtime/tools/` (registry, base, seven core tools)
 - `src/code_agent_runtime/agents/` (base, mock, scripted, solutions)
 - `src/code_agent_runtime/runtime/` (state, execution, agent_loop, report)
-- `src/code_agent_runtime/traces/` (schema, recorder, store)
+- `src/code_agent_runtime/traces/` (schema, recorder, store, replay, summarize)
 - `tasks/`, `examples/` (example task definitions and fixtures)
 - `docs/PLAN.md` (target layout and milestones)
 
@@ -85,8 +88,10 @@ task ──▶ workspace ──▶ agent loop ──▶ tools ──▶ tests �
 
 - What is the minimal trace schema that still supports faithful replay? The
   Milestone 5 `Trace` (a timestamped event timeline plus the embedded
-  `RunResult`) is the current answer; Milestone 6's replay/summarise tooling is
-  the test of whether the event/result split is sufficient.
+  `RunResult`) is the current answer; Milestone 6's `replay_trace` confirms the
+  event/result split reconstructs the timeline, tool calls, diff, tests, and
+  failure point. A re-execution/verification mode (re-running a trace to confirm
+  it reproduces) remains a later, optional capability.
 - Where should the policy/mechanism boundary sit for shell execution?
 - The planned `runtime/context.py` and `runtime/tool_registry.py` were collapsed
   (context is `RunConfig` + `ToolContext`; the registry lives in `tools/`). Keep

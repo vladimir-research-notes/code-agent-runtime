@@ -26,13 +26,16 @@
 <main>
   <h1>Tracing &amp; replay</h1>
   <p class="lede">A run that cannot be replayed from its trace is a bug, not a feature.</p>
-  <p><span class="status scaffold">status: Milestone 5 — trace recorder implemented; replay/summarise tooling is Milestone 6</span></p>
+  <p><span class="status scaffold">status: Milestone 6 — trace recorder and replay/summarise tooling implemented</span></p>
 
   <h2>Brief explanation</h2>
   <p>Every run can be recorded as a structured, JSON-serialisable <strong>trace</strong>:
   enough to reconstruct what the task was, what the agent did, what the runtime observed, and
   <em>when</em> — without re-executing anything. A trace is the evidence behind a reported
-  result. Tracing is opt-in: an untraced run is byte-for-byte unchanged.</p>
+  result. Tracing is opt-in: an untraced run is byte-for-byte unchanged. <strong>Replay</strong>
+  reads a stored trace back and reconstructs the action timeline, the tool calls, the diff, the
+  tests, and the <em>failure point</em> — then renders it as a text summary or a Markdown
+  report.</p>
 
   <h2>Deeper technical explanation</h2>
   <p>A trace has two layers. The <code>events</code> list is a timestamped timeline —
@@ -48,45 +51,69 @@
   <code>RunResult</code> are deliberately timing-free so they stay deterministic; the trace is
   the one temporal artifact. The recorder reads time through an injectable <code>Clock</code>
   (real <code>time.time</code> + <code>time.monotonic</code> in production; a deterministic fake
-  in tests), so a traced run is fully reproducible under test. Replay and summarise tooling —
-  reconstructing the action timeline, diffs, tests, and failure point from a stored trace
-  without re-executing — is Milestone 6.</p>
+  in tests), so a traced run is fully reproducible under test.</p>
+
+  <h2>Replay: reconstruction, not re-execution (Milestone 6)</h2>
+  <p><code>replay_trace(trace)</code> turns a stored trace back into a <code>ReplayedRun</code>:
+  the ordered timeline, the <code>tool_calls</code> extracted from it (each with its
+  allowed/blocked and ok/failed state and exit code), the <code>tests</code> and
+  <code>diff</code> payloads, every detected <strong>anomaly</strong>, and the single
+  <strong>failure point</strong> that best explains the verdict. It re-runs nothing — no
+  workspace, no subprocess, no network — it reads the trace and interprets it.</p>
+  <p>The value over the raw trace is interpretation. A bare pass/fail verdict can hide failure
+  modes that the timeline makes visible: a tool the permission gate <em>blocked</em>, a tool
+  that returned an <em>error</em>, a <em>failing</em> test command, a run that <em>errored</em>
+  before finishing. Replay records each as an anomaly and chooses the verdict-determining one
+  (a terminal <code>run_error</code>, then the scoring <code>tests_failed</code>, else the
+  earliest) as the failure point. A run that passed or was not scored has <em>no</em> failure
+  point — even if it logged anomalies along the way. That asymmetry is the point: it surfaces a
+  verdict that hid a failure mode, one of the project's research questions made concrete.</p>
+  <p>Two renderers print a reconstruction: <code>summarize_trace</code> (a compact one-screen
+  text summary) and <code>trace_to_markdown</code> (a fuller Markdown report with the timeline,
+  tool calls, test-output tail, and unified diff as headings and tables).</p>
 
   <h2>Current implementation status</h2>
-  <p>Implemented (Milestone 5). The <code>traces/</code> package defines the schema
+  <p>Implemented (Milestones 5–6). The <code>traces/</code> package defines the schema
   (<code>Trace</code>, <code>TraceEvent</code>, <code>SCHEMA_VERSION</code>) and a
-  <code>TraceRecorder</code> the runtime loop drives stage by stage. <code>record_run</code>
-  returns <code>(result, trace)</code>; <code>write_trace</code>/<code>load_trace</code> persist
-  and reload a trace as JSON; and <code>code-agent-runtime run --trace [PATH]</code> records a
-  run from the CLI.</p>
+  <code>TraceRecorder</code> the runtime loop drives stage by stage; <code>record_run</code>
+  returns <code>(result, trace)</code> and <code>write_trace</code>/<code>load_trace</code>
+  persist and reload a trace as JSON. <code>replay_trace</code> reconstructs a run, and
+  <code>summarize_trace</code> / <code>trace_to_markdown</code> render it. From the CLI:
+  <code>run --trace [PATH]</code> records, <code>trace show &lt;path&gt;</code> summarises
+  (or <code>--json</code> emits the structured <code>ReplayedRun</code>), and
+  <code>trace report &lt;path&gt;</code> writes a Markdown report.</p>
 
   <h2>Relevant files</h2>
   <ul class="files">
     <li>src/code_agent_runtime/traces/schema.py (Trace, TraceEvent, SCHEMA_VERSION)</li>
     <li>src/code_agent_runtime/traces/recorder.py (TraceRecorder, Clock)</li>
     <li>src/code_agent_runtime/traces/store.py (record_run, write_trace, load_trace)</li>
+    <li>src/code_agent_runtime/traces/replay.py (ReplayedRun, ToolCallView, Anomaly, replay_trace)</li>
+    <li>src/code_agent_runtime/traces/summarize.py (summarize_trace, trace_to_markdown)</li>
     <li>src/code_agent_runtime/runtime/agent_loop.py (run_task recorder hooks)</li>
-    <li>src/code_agent_runtime/runtime/state.py (RunResult, StepRecord — embedded in the trace)</li>
-    <li>tests/test_traces.py</li>
+    <li>tests/test_traces.py, tests/test_replay.py</li>
   </ul>
 
   <h2>Current test/result status</h2>
-  <p><code>tests/test_traces.py</code> passes: schema round-trip, recorder lifecycle (event
-  order, sequence, elapsed), <code>record_run</code> over the shipped fixtures (full timeline,
-  embedded result, deterministic id and timestamps via a fake clock), the error path, JSON
-  persistence (file and directory), and the <code>run --trace</code> CLI. Git-dependent
-  assertions (the <code>diff_captured</code> event) skip when <code>git</code> is absent.</p>
+  <p><code>tests/test_traces.py</code> covers the recorder and schema; <code>tests/test_replay.py</code>
+  covers replay and rendering: a passing run (timeline, tool calls, counts, no failure point), a
+  failing run (the mock agent leaves tests failing → <code>tests_failed</code> is the failure
+  point), an errored run (workspace prep failed → <code>run_error</code>, a two-event timeline),
+  a blocked tool call that is an anomaly but <em>not</em> the failure point on a passing run, the
+  <code>ReplayedRun</code> JSON round-trip, the text/Markdown renderers (including pipe escaping
+  in table cells), and the <code>trace show</code> / <code>trace report</code> CLI. Git-dependent
+  diff assertions skip when <code>git</code> is absent.</p>
 
   <h2>Open questions / limitations</h2>
   <ul>
-    <li><strong>Captured output is not redacted.</strong> A trace stores command stdout/stderr
-    as captured, so it may contain whatever a command printed (including secrets). Redaction
-    belongs with the secret scanner in Milestone 7; until then, do not persist traces of
-    untrusted commands to a shared location.</li>
-    <li>Is the event/result split (timeline vs. payloads) the right boundary for faithful
-    replay? Milestone 6 will tell.</li>
-    <li><code>default_trace_id</code> is best-effort unique (<code>&lt;task&gt;-&lt;wall.3f&gt;</code>);
-    pass an explicit id when a hard guarantee is needed.</li>
+    <li><strong>Rendered output is not redacted.</strong> A trace stores command stdout/stderr
+    as captured, and a report renders it as stored, so it may contain whatever a command printed
+    (including secrets). Redaction belongs with the secret scanner in Milestone 7; until then,
+    do not persist traces — or publish reports — of untrusted commands to a shared location.</li>
+    <li>Replay <em>reconstructs</em>; it does not re-execute. A mode that re-runs a trace to
+    confirm it reproduces is a later, optional capability.</li>
+    <li><code>trace show</code> / <code>trace report</code> are inspectors: they exit non-zero
+    only on a missing/malformed trace, not on a failed run.</li>
   </ul>
 </main>
 <footer class="site">Code Agent Runtime — research/engineering scaffold. Built milestone by milestone.</footer>

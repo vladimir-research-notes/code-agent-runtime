@@ -46,8 +46,10 @@ node_modules/
 *.h5
 *.ckpt
 
-# Logs
+# Logs (the milestone runner writes per-milestone run/cost logs under logs/;
+# these are local artifacts, not committed)
 *.log
+/logs/
 
 # Trace output directory (the `run --trace` default destination). Specific
 # example traces, if ever committed, should live elsewhere and be force-added.

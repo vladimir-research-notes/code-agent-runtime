@@ -26,7 +26,7 @@
 <main>
   <h1>Architecture</h1>
   <p class="lede">How a versioned task and an agent become a scored, replayable trace.</p>
-  <p><span class="status scaffold">status: Milestone 5 — tasks, tools, the runtime loop, and structured tracing implemented; sandbox pending</span></p>
+  <p><span class="status scaffold">status: Milestone 6 — tasks, tools, the runtime loop, structured tracing, and trace replay implemented; sandbox pending</span></p>
 
   <h2>Brief explanation</h2>
   <p>The runtime is an explicit pipeline. Each stage has a clear input and output so that
@@ -110,6 +110,19 @@
   so an untraced run is unchanged. Captured output is <strong>not</strong> redacted yet
   (Milestone 7).</p>
 
+  <h2>Trace replay (Milestone 6)</h2>
+  <p><code>replay_trace(trace)</code> reconstructs a run from a stored trace
+  <strong>without re-executing</strong> it, into a <code>ReplayedRun</code>: the ordered
+  timeline, the <code>tool_calls</code> extracted from it, the <code>tests</code> and
+  <code>diff</code> payloads, every detected <strong>anomaly</strong> (a blocked or failed tool
+  call, a failing test command, a run that errored), and the single <strong>failure point</strong>
+  that best explains the verdict — a terminal <code>run_error</code>, then the scoring
+  <code>tests_failed</code>, else the earliest anomaly. A run that passed or was not scored has
+  no failure point, even with anomalies: that asymmetry surfaces a verdict that hid a failure
+  mode. Two renderers print a reconstruction — <code>summarize_trace</code> (text) and
+  <code>trace_to_markdown</code> (a Markdown report) — exposed as <code>trace show</code> and
+  <code>trace report</code>. Replay is pure: data in, strings out, no subprocess or network.</p>
+
   <h2>Current implementation status</h2>
   <ul>
     <li>Package scaffold and CLI — done.</li>
@@ -117,7 +130,8 @@
     <li>Tool registry and seven core tools (Milestone 3) — done.</li>
     <li>Runtime loop with mock/scripted agents and a <code>run</code> CLI (Milestone 4) — done.</li>
     <li>Structured run tracing with an opt-in recorder and <code>run --trace</code> (Milestone 5) — done.</li>
-    <li>Replay, sandbox, full scoring, reports, adapters — pending.</li>
+    <li>Trace replay/summarise with <code>trace show</code> / <code>trace report</code> (Milestone 6) — done.</li>
+    <li>Sandbox, full scoring, reports, adapters — pending.</li>
   </ul>
 
   <h2>Relevant files</h2>
@@ -128,8 +142,8 @@
     <li>src/code_agent_runtime/tools/ (base, registry, seven tools, _exec)</li>
     <li>src/code_agent_runtime/agents/ (base, mock, scripted, solutions)</li>
     <li>src/code_agent_runtime/runtime/ (state, execution, agent_loop, report)</li>
-    <li>src/code_agent_runtime/traces/ (schema, recorder, store)</li>
-    <li>tests/test_tools.py, tests/test_runtime.py, tests/test_traces.py</li>
+    <li>src/code_agent_runtime/traces/ (schema, recorder, store, replay, summarize)</li>
+    <li>tests/test_tools.py, tests/test_runtime.py, tests/test_traces.py, tests/test_replay.py</li>
     <li>docs/PLAN.md</li>
   </ul>
 
@@ -150,8 +164,10 @@
       and the suite/regression machinery are Milestone 8.</li>
     <li><code>apply_patch</code> applies exact-context unified diffs (no fuzzy matching, no
       binary patches, no rename detection).</li>
-    <li>What is the minimal trace schema that still supports faithful replay? The
-      <code>RunResult</code> shape is the first draft of that answer.</li>
+    <li>What is the minimal trace schema that still supports faithful replay?
+      <code>replay_trace</code> (Milestone 6) reconstructs the timeline, tool calls, diff,
+      tests, and failure point from the current schema; a re-execution/verification mode is a
+      later, optional capability.</li>
   </ul>
 </main>
 <footer class="site">Code Agent Runtime — research/engineering scaffold. Built milestone by milestone.</footer>
