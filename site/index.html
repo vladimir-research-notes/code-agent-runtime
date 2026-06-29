@@ -39,8 +39,50 @@
 
   <h2>Deeper technical explanation</h2>
   <p>A run takes a versioned task and an agent and produces a scored, replayable trace:</p>
-  <pre><code>task -&gt; workspace -&gt; agent loop -&gt; tools -&gt; tests -&gt; scoring -&gt; report
-                         \__ trace recorder captures every step __/</code></pre>
+  <figure class="diagram">
+    <svg viewBox="0 0 960 214" role="img" aria-labelledby="pipe-t pipe-d">
+      <title id="pipe-t">The runtime pipeline</title>
+      <desc id="pipe-d">A versioned task flows through workspace preparation, the agent loop and tools, test execution, scoring, and a report; an opt-in trace recorder captures every stage.</desc>
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" class="d-fill-muted"/>
+        </marker>
+      </defs>
+      <rect class="d-box" x="40"  y="36" width="112" height="46" rx="6"/>
+      <rect class="d-box" x="168" y="36" width="112" height="46" rx="6"/>
+      <rect class="d-box" x="296" y="36" width="112" height="46" rx="6"/>
+      <rect class="d-box" x="424" y="36" width="112" height="46" rx="6"/>
+      <rect class="d-box" x="552" y="36" width="112" height="46" rx="6"/>
+      <rect class="d-box" x="680" y="36" width="112" height="46" rx="6"/>
+      <rect class="d-box" x="808" y="36" width="112" height="46" rx="6"/>
+      <text class="d-label" x="96"  y="64" text-anchor="middle">Task</text>
+      <text class="d-label" x="224" y="64" text-anchor="middle">Workspace</text>
+      <text class="d-label" x="352" y="64" text-anchor="middle">Agent loop</text>
+      <text class="d-label" x="480" y="64" text-anchor="middle">Tools</text>
+      <text class="d-label" x="608" y="64" text-anchor="middle">Tests</text>
+      <text class="d-label" x="736" y="64" text-anchor="middle">Scoring</text>
+      <text class="d-label" x="864" y="64" text-anchor="middle">Report</text>
+      <line class="d-edge" x1="152" y1="59" x2="166" y2="59" marker-end="url(#ar)"/>
+      <line class="d-edge" x1="280" y1="59" x2="294" y2="59" marker-end="url(#ar)"/>
+      <line class="d-edge" x1="408" y1="59" x2="422" y2="59" marker-end="url(#ar)"/>
+      <line class="d-edge" x1="536" y1="59" x2="550" y2="59" marker-end="url(#ar)"/>
+      <line class="d-edge" x1="664" y1="59" x2="678" y2="59" marker-end="url(#ar)"/>
+      <line class="d-edge" x1="792" y1="59" x2="806" y2="59" marker-end="url(#ar)"/>
+      <path class="d-edge" d="M 480 36 C 462 10, 370 10, 352 34" marker-end="url(#ar)"/>
+      <text class="d-sub" x="416" y="28" text-anchor="middle">loop</text>
+      <line class="d-edge-dashed" x1="96"  y1="82" x2="96"  y2="144"/>
+      <line class="d-edge-dashed" x1="224" y1="82" x2="224" y2="144"/>
+      <line class="d-edge-dashed" x1="352" y1="82" x2="352" y2="144"/>
+      <line class="d-edge-dashed" x1="480" y1="82" x2="480" y2="144"/>
+      <line class="d-edge-dashed" x1="608" y1="82" x2="608" y2="144"/>
+      <line class="d-edge-dashed" x1="736" y1="82" x2="736" y2="144"/>
+      <line class="d-edge-dashed" x1="864" y1="82" x2="864" y2="144"/>
+      <rect class="d-box-muted" x="40" y="144" width="880" height="40" rx="6"/>
+      <text class="d-label" x="480" y="169" text-anchor="middle">trace recorder — opt-in: records every stage with timestamps</text>
+    </svg>
+    <figcaption>A versioned task becomes a scored, replayable trace. The agent only proposes
+    actions; the runtime owns every side effect, and the opt-in recorder captures each stage.</figcaption>
+  </figure>
   <p>Deterministic mock and scripted agents are first-class so the whole pipeline can be
   exercised without any model call. Optional, cost-guarded Claude API / Claude Code
   adapters are added only after the runtime foundations exist.</p>
@@ -93,7 +135,9 @@
       baselines plus the sandbox probes, emitting a result CSV, Markdown/HTML reports, and one
       inspectable trace per run, via <code>scripts/07_case_study.py</code> and a new
       <code>suite_to_csv</code> exporter — <strong>done</strong> (Milestone 12).</li>
-    <li>Website polish and final hardening — <em>pending</em>.</li>
+    <li>Multi-page website polish — uniform six-section pages, consistent status, and
+      inline-SVG diagrams across all ten pages — <strong>in progress</strong> (Milestone 13).</li>
+    <li>Final hardening — <em>pending</em> (Milestone 14).</li>
   </ul>
 
   <h2>Relevant files</h2>

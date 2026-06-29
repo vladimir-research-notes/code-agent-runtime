@@ -58,6 +58,52 @@
   <code>outside_workspace</code>, <code>command_denylist</code>, <code>network_denied</code>) — so
   the trace shows exactly what was blocked and why.</p>
 
+  <figure class="diagram">
+    <svg viewBox="0 0 960 210" role="img" aria-labelledby="sb-t sb-d">
+      <title id="sb-t">The sandbox gate</title>
+      <desc id="sb-d">Every agent tool call is checked before dispatch: an allowed call runs and its output is redacted before entering a step or trace; a denied call never executes and is recorded as a blocked step with the rule that stopped it.</desc>
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" class="d-fill-muted"/>
+        </marker>
+        <marker id="ar-ok" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" class="d-fill-ok"/>
+        </marker>
+        <marker id="ar-warn" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" class="d-fill-warn"/>
+        </marker>
+      </defs>
+
+      <rect class="d-box" x="16" y="84" width="140" height="48" rx="6"/>
+      <text class="d-label" x="86" y="113" text-anchor="middle">agent tool call</text>
+
+      <rect class="d-box" x="190" y="80" width="160" height="56" rx="6"/>
+      <text class="d-label" x="270" y="104" text-anchor="middle">Sandbox.check_call</text>
+      <text class="d-sub"   x="270" y="122" text-anchor="middle">before dispatch</text>
+      <line class="d-edge" x1="156" y1="108" x2="188" y2="108" marker-end="url(#ar)"/>
+
+      <path class="d-edge-ok" d="M 350 94 C 374 64, 374 62, 396 62" marker-end="url(#ar-ok)"/>
+      <text class="d-sub d-fill-ok" x="378" y="54" text-anchor="middle">allow</text>
+      <rect class="d-box" x="398" y="40" width="120" height="44" rx="6"/>
+      <text class="d-label" x="458" y="67" text-anchor="middle">dispatch tool</text>
+      <line class="d-edge" x1="518" y1="62" x2="556" y2="62" marker-end="url(#ar)"/>
+      <rect class="d-box" x="558" y="40" width="172" height="44" rx="6"/>
+      <text class="d-label" x="644" y="59" text-anchor="middle">Sandbox.redact_result</text>
+      <text class="d-sub"   x="644" y="76" text-anchor="middle">after dispatch</text>
+      <line class="d-edge" x1="730" y1="62" x2="766" y2="62" marker-end="url(#ar)"/>
+      <rect class="d-box-ok" x="768" y="40" width="150" height="44" rx="6"/>
+      <text class="d-label" x="843" y="67" text-anchor="middle">step + trace</text>
+
+      <path class="d-edge-warn" d="M 350 122 C 374 152, 374 156, 396 156" marker-end="url(#ar-warn)"/>
+      <text class="d-sub d-fill-warn" x="378" y="178" text-anchor="middle">deny</text>
+      <rect class="d-box-warn" x="398" y="134" width="360" height="44" rx="6"/>
+      <text class="d-label" x="578" y="154" text-anchor="middle">“blocked” step — never executes</text>
+      <text class="d-sub"   x="578" y="170" text-anchor="middle">rule recorded (denied_path, network_denied, …)</text>
+    </svg>
+    <figcaption>The gate runs <em>before</em> dispatch (a denied call never executes); redaction
+    runs <em>after</em> (credential-shaped output never reaches a step or trace).</figcaption>
+  </figure>
+
   <h2>Unsafe demos (blocked vs. allowed)</h2>
   <p>Two built-in <strong>probe</strong> agents attempt the actions a coding agent must never
   perform, so the sandbox can be observed refusing them. Run them:</p>

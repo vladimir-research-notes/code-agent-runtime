@@ -48,8 +48,8 @@ from . import traces as _traces
 
 # The milestone the runtime currently implements. Kept here so ``info`` can
 # report honest project status without scanning the filesystem.
-CURRENT_MILESTONE = "Milestone 12 — Reproducible case study"
-NEXT_MILESTONE = "Milestone 13 — Multi-page website polish"
+CURRENT_MILESTONE = "Milestone 13 — Multi-page website polish"
+NEXT_MILESTONE = "Milestone 14 — Final hardening"
 
 #: Default directory the ``tasks`` subcommands scan.
 DEFAULT_TASKS_DIR = "tasks"

@@ -26,10 +26,10 @@
 <main>
   <h1>Limitations &amp; non-goals</h1>
   <p class="lede">What is true today, and what this project deliberately is not.</p>
-  <p><span class="status scaffold">status: current as of Milestone 11</span></p>
+  <p><span class="status scaffold">status: current as of Milestone 12; website polish in progress (Milestone 13)</span></p>
 
   <h2>Brief explanation</h2>
-  <p>As of Milestone 11 the repository has a package and CLI, docs, website, packaging, CPU-only
+  <p>As of Milestone 12 the repository has a package and CLI, docs, website, packaging, CPU-only
   tests, an environment check and hygiene scanner, a versioned task format, a tool registry with
   seven core tools, a runtime loop that drives mock/scripted agents over a task, structured run
   tracing, trace replay/debugging tooling, permission policies and sandbox controls (enforced
@@ -40,7 +40,9 @@
   behind a hard pre-call budget guard, a response cache, transcript redaction, and a
   <code>--dry-run</code> cost preview — offline by default via a deterministic fake client,
   opt-in to a real Claude API run), and a Claude Code trace importer (normalise an external run
-  into this runtime's trace format and score it with the same scorer, in verify or trust mode).</p>
+  into this runtime's trace format and score it with the same scorer, in verify or trust mode),
+  and a reproducible case study (13 tasks across all five categories, run by both deterministic
+  baselines plus the sandbox probes into a committed result CSV, reports, and one trace per run).</p>
 
   <h2>Deeper technical explanation</h2>
   <h3>Known limitations</h3>
@@ -72,7 +74,8 @@
       <code>expected_files</code> checks existence/substrings, not semantic equivalence.
       Glob matching uses <code>fnmatch</code> (<code>*</code> spans <code>/</code>). Runtime is
       wall-clock and machine-dependent; only verdicts and tool/command counts are deterministic.</li>
-    <li><strong>Small task set.</strong> Six tasks make results illustrative, not a benchmark.
+    <li><strong>Small task set.</strong> Thirteen tasks across five categories make results
+      illustrative, not a benchmark.
       Regression comparison judges only the pass/fail signal (<em>improved</em> = gained a pass,
       <em>regressed</em> = lost one); a &ldquo;0 regressions&rdquo; result is not a correctness
       proof. Flakiness needs repeats — two single-run files cannot reveal it — and small repeat
@@ -120,9 +123,9 @@
 
   <h2>Current test/result status</h2>
   <p>CPU-only tests pass, including environment, hygiene-scanner, task, tool, runtime,
-  tracing, replay, sandbox, scoring, eval, regression/flakiness, LLM-adapter, and importer tests
-  (the adapter and importer are tested entirely offline — no API key, no network); nothing beyond
-  Milestone 11 is claimed.</p>
+  tracing, replay, sandbox, scoring, eval, regression/flakiness, LLM-adapter, importer, case-study,
+  and website-quality tests (the adapter and importer are tested entirely offline — no API key, no
+  network); nothing beyond Milestone 12 is claimed (Milestone 13 polishes the website only).</p>
 
   <h2>Open questions / limitations</h2>
   <p>Each milestone narrows these as real subsystems land and are tested.</p>

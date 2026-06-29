@@ -8,7 +8,7 @@ infrastructure *around* coding agents — task setup, tools, permissions,
 execution, tracing, replay, scoring, regression comparison, and reports. It is
 **not** a tutorial, a clone of a commercial tool, or a benchmark leaderboard.
 
-> Status: **Milestone 12 — Reproducible case study.** This
+> Status: **Milestone 13 — Multi-page website polish (in progress).** This
 > repository is being built milestone by milestone (see [`docs/PLAN.md`](docs/PLAN.md)).
 > The package, docs, website, packaging, and tests exist, plus an environment check, a
 > repository hygiene scanner, a versioned task format (schema, loader, example
@@ -41,7 +41,9 @@ execution, tracing, replay, scoring, regression comparison, and reports. It is
 > inspectable trace per run, via `scripts/07_case_study.py` and a `suite_to_csv`
 > exporter; the committed table is [`docs/RESULTS.md`](docs/RESULTS.md) and
 > [`docs/results/case_study.csv`](docs/results/case_study.csv)).
-> Website polish and final hardening are the remaining milestones.
+> Milestone 13 polishes the multi-page website — uniform six-section pages,
+> consistent status, and self-contained inline-SVG diagrams, enforced by
+> `tests/test_site_quality.py`; final hardening (Milestone 14) remains.
 
 ## Design constraints
 

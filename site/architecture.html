@@ -26,15 +26,80 @@
 <main>
   <h1>Architecture</h1>
   <p class="lede">How a versioned task and an agent become a scored, replayable trace.</p>
-  <p><span class="status done">status: Milestone 11 — tasks, tools, the runtime loop, structured tracing, trace replay, sandbox controls, scoring + reports, regression + flakiness, the optional cost-controlled LLM adapter, and the Claude Code trace importer implemented</span></p>
+  <p><span class="status done">status: Milestones 2–12 implemented — tasks, tools, the runtime loop, structured tracing, trace replay, sandbox controls, scoring + reports, regression + flakiness, the optional cost-controlled LLM adapter, the Claude Code trace importer, and the reproducible case study</span></p>
 
-  <h2>Brief explanation</h2>
+  <nav class="toc" aria-label="On this page">
+    <div class="toc-title">On this page</div>
+    <ul>
+      <li><a href="#brief">Brief explanation</a></li>
+      <li><a href="#deeper">Deeper technical explanation</a></li>
+      <li><a href="#tools">Core tools (M3)</a></li>
+      <li><a href="#loop">Runtime loop (M4)</a></li>
+      <li><a href="#recorder">Trace recorder (M5)</a></li>
+      <li><a href="#replay">Trace replay (M6)</a></li>
+      <li><a href="#sandbox">Sandbox (M7)</a></li>
+      <li><a href="#scoring">Scoring &amp; reports (M8)</a></li>
+      <li><a href="#regression">Regression &amp; flakiness (M9)</a></li>
+      <li><a href="#llm">LLM adapter (M10)</a></li>
+      <li><a href="#importer">Trace importer (M11)</a></li>
+      <li><a href="#case-study">Case study (M12)</a></li>
+      <li><a href="#status">Implementation status</a></li>
+      <li><a href="#files">Relevant files</a></li>
+      <li><a href="#tests">Test/result status</a></li>
+      <li><a href="#limits">Limitations</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="brief">Brief explanation</h2>
   <p>The runtime is an explicit pipeline. Each stage has a clear input and output so that
   every step can be inspected, traced, and reproduced.</p>
 
-  <h2>Deeper technical explanation</h2>
-  <pre><code>task -&gt; workspace -&gt; agent loop -&gt; tools -&gt; tests -&gt; scoring -&gt; report
-                         \__ trace recorder __/</code></pre>
+  <h2 id="deeper">Deeper technical explanation</h2>
+  <figure class="diagram">
+    <svg viewBox="0 0 960 214" role="img" aria-labelledby="apipe-t apipe-d">
+      <title id="apipe-t">The runtime pipeline</title>
+      <desc id="apipe-d">A versioned task flows through workspace preparation, the agent loop and tools, test execution, scoring, and a report; an opt-in trace recorder captures every stage.</desc>
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" class="d-fill-muted"/>
+        </marker>
+      </defs>
+      <rect class="d-box" x="40"  y="36" width="112" height="46" rx="6"/>
+      <rect class="d-box" x="168" y="36" width="112" height="46" rx="6"/>
+      <rect class="d-box" x="296" y="36" width="112" height="46" rx="6"/>
+      <rect class="d-box" x="424" y="36" width="112" height="46" rx="6"/>
+      <rect class="d-box" x="552" y="36" width="112" height="46" rx="6"/>
+      <rect class="d-box" x="680" y="36" width="112" height="46" rx="6"/>
+      <rect class="d-box" x="808" y="36" width="112" height="46" rx="6"/>
+      <text class="d-label" x="96"  y="64" text-anchor="middle">Task</text>
+      <text class="d-label" x="224" y="64" text-anchor="middle">Workspace</text>
+      <text class="d-label" x="352" y="64" text-anchor="middle">Agent loop</text>
+      <text class="d-label" x="480" y="64" text-anchor="middle">Tools</text>
+      <text class="d-label" x="608" y="64" text-anchor="middle">Tests</text>
+      <text class="d-label" x="736" y="64" text-anchor="middle">Scoring</text>
+      <text class="d-label" x="864" y="64" text-anchor="middle">Report</text>
+      <line class="d-edge" x1="152" y1="59" x2="166" y2="59" marker-end="url(#ar)"/>
+      <line class="d-edge" x1="280" y1="59" x2="294" y2="59" marker-end="url(#ar)"/>
+      <line class="d-edge" x1="408" y1="59" x2="422" y2="59" marker-end="url(#ar)"/>
+      <line class="d-edge" x1="536" y1="59" x2="550" y2="59" marker-end="url(#ar)"/>
+      <line class="d-edge" x1="664" y1="59" x2="678" y2="59" marker-end="url(#ar)"/>
+      <line class="d-edge" x1="792" y1="59" x2="806" y2="59" marker-end="url(#ar)"/>
+      <path class="d-edge" d="M 480 36 C 462 10, 370 10, 352 34" marker-end="url(#ar)"/>
+      <text class="d-sub" x="416" y="28" text-anchor="middle">loop</text>
+      <line class="d-edge-dashed" x1="96"  y1="82" x2="96"  y2="144"/>
+      <line class="d-edge-dashed" x1="224" y1="82" x2="224" y2="144"/>
+      <line class="d-edge-dashed" x1="352" y1="82" x2="352" y2="144"/>
+      <line class="d-edge-dashed" x1="480" y1="82" x2="480" y2="144"/>
+      <line class="d-edge-dashed" x1="608" y1="82" x2="608" y2="144"/>
+      <line class="d-edge-dashed" x1="736" y1="82" x2="736" y2="144"/>
+      <line class="d-edge-dashed" x1="864" y1="82" x2="864" y2="144"/>
+      <rect class="d-box-muted" x="40" y="144" width="880" height="40" rx="6"/>
+      <text class="d-label" x="480" y="169" text-anchor="middle">trace recorder — opt-in: records every stage with timestamps</text>
+    </svg>
+    <figcaption>Each stage has a clear input and output, so every step can be inspected,
+    traced, and reproduced. The recorder is the one temporal artifact; tools and the
+    <code>RunResult</code> stay timing-free and deterministic.</figcaption>
+  </figure>
   <table>
     <tr><th>Component</th><th>Package (target)</th><th>Responsibility</th></tr>
     <tr><td>Tasks</td><td>tasks/</td><td>Load and validate versioned task definitions.</td></tr>
@@ -50,7 +115,7 @@
   <p>Design principles: deterministic-first, everything-is-traced, separation of policy and
   mechanism, and no hidden cost.</p>
 
-  <h2>Core tools (Milestone 3)</h2>
+  <h2 id="tools">Core tools (Milestone 3)</h2>
   <p>Tools are the only way an agent acts on a workspace. Every tool shares one shape — a
   static <code>ToolSpec</code>, a validated <code>run()</code> entry point, and a
   JSON-serialisable <code>ToolResult</code> — so the runtime can dispatch them uniformly and
@@ -72,7 +137,7 @@
   a test asserts it equals the task schema's <code>KNOWN_TOOLS</code>, so a task can never
   request a tool that does not exist.</p>
 
-  <h2>Runtime loop (Milestone 4)</h2>
+  <h2 id="loop">Runtime loop (Milestone 4)</h2>
   <p>The runtime turns a validated task and an agent into a single structured, scored
   <code>RunResult</code>. An <strong>agent</strong> only <em>proposes</em> the next action
   (run a tool, or finish); the <strong>runtime</strong> owns every side effect — preparing
@@ -95,7 +160,7 @@
   Milestone 7 sandbox policy (see below) — but no process/namespace isolation. The loop scores by
   delegating to the Milestone 8 scoring layer, before the workspace is cleaned up.</p>
 
-  <h2>Trace recorder (Milestone 5)</h2>
+  <h2 id="recorder">Trace recorder (Milestone 5)</h2>
   <p>A run can be recorded as a structured, JSON-serialisable <code>Trace</code> with two
   layers: a timestamped <code>events</code> timeline (<code>run_started</code>,
   <code>workspace_prepared</code>, <code>tool_call</code>, <code>agent_finish</code>,
@@ -111,7 +176,7 @@
   so an untraced run is unchanged. Captured output is <strong>not</strong> redacted yet
   (Milestone 7).</p>
 
-  <h2>Trace replay (Milestone 6)</h2>
+  <h2 id="replay">Trace replay (Milestone 6)</h2>
   <p><code>replay_trace(trace)</code> reconstructs a run from a stored trace
   <strong>without re-executing</strong> it, into a <code>ReplayedRun</code>: the ordered
   timeline, the <code>tool_calls</code> extracted from it, the <code>tests</code> and
@@ -124,7 +189,7 @@
   <code>trace_to_markdown</code> (a Markdown report) — exposed as <code>trace show</code> and
   <code>trace report</code>. Replay is pure: data in, strings out, no subprocess or network.</p>
 
-  <h2>Sandbox (Milestone 7)</h2>
+  <h2 id="sandbox">Sandbox (Milestone 7)</h2>
   <p>The sandbox is the <strong>policy</strong> layer over the tools' <strong>mechanism</strong>.
   A <code>SandboxPolicy</code> declares allowed/denied read &amp; write path globs, a command
   allow/denylist, a network flag, and runtime/output caps; a <code>Sandbox</code> enforces it on
@@ -140,7 +205,7 @@
   adds observability — it is <strong>not</strong> a jail (program-name command matching, heuristic
   network denylist, no process/namespace isolation). See <a href="sandboxing.html">Sandboxing</a>.</p>
 
-  <h2>Scoring &amp; reports (Milestone 8)</h2>
+  <h2 id="scoring">Scoring &amp; reports (Milestone 8)</h2>
   <p>The <code>scoring/</code> layer turns a finished run into a <strong>verdict</strong> and is a
   pure function of the evidence the run produced (the test result, the captured diff, the live
   workspace) — so a verdict is reproducible and unit-testable without re-running anything. The loop
@@ -161,7 +226,20 @@
   <code>scripts/02_generate_report.py</code>. See <a href="evals.html">Evals</a> and
   <a href="results.html">Results</a>.</p>
 
-  <h2>Optional cost-controlled LLM adapter (Milestone 10)</h2>
+  <h2 id="regression">Regression &amp; flakiness (Milestone 9)</h2>
+  <p>Two analyses sit <em>above</em> the suite layer, consuming the JSON <code>SuiteResult</code>s
+  it already emits — so neither re-runs an agent. <code>compare_suites</code> diffs a baseline
+  result against a candidate, keyed by <code>(task id, agent)</code>, and buckets every key on the
+  pass/fail signal: <strong>improved</strong> (gained a pass), <strong>regressed</strong> (lost
+  one), <strong>unchanged</strong>, <strong>added</strong>/<strong>removed</strong> (present on one
+  side only); any other outcome transition is kept in <code>detail</code>. <em>Rerun mode</em>
+  (<code>run_repeated</code> → <code>analyze_flakiness</code>) runs the same suite N times and flags
+  any key whose scored outcome was not identical on every repeat — verdict flakiness ignores
+  wall-clock runtime. The deterministic agents yield zero flaky keys, a determinism check the tests
+  assert. Exposed as <code>eval compare</code> / <code>eval rerun</code>. See
+  <a href="evals.html">Evals</a> and <a href="results.html">Results</a>.</p>
+
+  <h2 id="llm">Optional cost-controlled LLM adapter (Milestone 10)</h2>
   <p>The <code>agents/llm/</code> subpackage adds a model-backed <code>llm</code> agent that plugs
   into the same one-action-per-step contract the baselines use, so the runtime, tracer, and scorer
   treat it identically. It is built so the real provider is strictly optional: nothing imports a
@@ -185,7 +263,7 @@
   opts into a real run; <code>--dry-run</code> previews the request and cost with no call. No test
   makes a paid call. See <a href="evals.html">Evals</a>.</p>
 
-  <h2>Claude Code trace importer (Milestone 11)</h2>
+  <h2 id="importer">Claude Code trace importer (Milestone 11)</h2>
   <p>The <code>importers/</code> subpackage lets an <em>external</em> run enter the pipeline at the
   scoring step rather than the agent loop. It normalises a Claude-Code-like run into an
   <code>ImportedRun</code> (the external tool calls mapped onto this runtime's vocabulary, the
@@ -205,7 +283,19 @@
   offline — no model, no network. See <a href="evals.html">Evals</a> and
   <a href="tracing-replay.html">Tracing &amp; replay</a>.</p>
 
-  <h2>Current implementation status</h2>
+  <h2 id="case-study">Reproducible case study (Milestone 12)</h2>
+  <p>The case study points the whole pipeline at a real, if small, workload: <strong>13 tasks
+  across all five categories</strong> (bugfix, refactor, cli_change, tests_must_pass, security),
+  each with a real fixture and a deterministic scripted solution (or a sandbox probe).
+  <code>scripts/07_case_study.py</code> runs the <code>mock</code> (null) and <code>scripted</code>
+  baselines plus the security <code>probe</code> <em>with tracing on</em>, then writes the result
+  CSV the plan calls for (via a new <code>suite_to_csv</code> exporter), Markdown/HTML reports, and
+  one inspectable trace per run — reloading and replaying one to prove inspectability. It exercises
+  every scoring method and stays offline (no model, no paid API). The committed, runtime-free table
+  lives at <code>docs/results/case_study.csv</code>; a test regenerates it and asserts a byte match
+  so it cannot silently drift. See <a href="results.html">Results</a>.</p>
+
+  <h2 id="status">Current implementation status</h2>
   <ul>
     <li>Package scaffold and CLI — done.</li>
     <li>Versioned task format (Milestone 2) — done.</li>
@@ -218,12 +308,15 @@
     <li>Regression comparison and flakiness analysis, with <code>eval compare</code> / <code>eval rerun</code> (Milestone 9) — done.</li>
     <li>Optional cost-controlled LLM adapter — model-backed <code>llm</code> agent, budget guard, cache, redaction, dry-run; offline by default (Milestone 10) — done.</li>
     <li>Claude Code trace importer — normalise an external run into a Trace and score it with the same scorer (verify or trust mode), with an <code>import</code> CLI (Milestone 11) — done.</li>
-    <li>Reproducible case study and later milestones — pending.</li>
+    <li>Reproducible case study — 13 tasks across all five categories, both baselines plus the
+      probes, a result CSV, reports, and one trace per run (Milestone 12) — done.</li>
+    <li>Multi-page website polish — uniform six-section pages, consistent status, inline-SVG
+      diagrams, and an on-this-page index (Milestone 13) — in progress.</li>
   </ul>
 
-  <h2>Relevant files</h2>
+  <h2 id="files">Relevant files</h2>
   <ul class="files">
-    <li>docs/ARCHITECTURE.md</li>
+    <li>docs/ARCHITECTURE.md, docs/PLAN.md</li>
     <li>src/code_agent_runtime/cli.py</li>
     <li>src/code_agent_runtime/tasks/ (schema, loader, fixtures)</li>
     <li>src/code_agent_runtime/tools/ (base, registry, seven tools, _exec)</li>
@@ -233,29 +326,33 @@
     <li>src/code_agent_runtime/traces/ (schema, recorder, store, replay, summarize)</li>
     <li>src/code_agent_runtime/sandbox/ (policy, permissions, secret_scanner)</li>
     <li>src/code_agent_runtime/scoring/ (scorer, test/expected_files/diff/custom, suite, regression)</li>
-    <li>src/code_agent_runtime/reports/ (markdown, html, regression)</li>
+    <li>src/code_agent_runtime/reports/ (markdown, html, csv, regression)</li>
     <li>src/code_agent_runtime/importers/ (schema, diffs, sources, convert)</li>
-    <li>tests/test_tools.py, test_runtime.py, test_traces.py, test_replay.py, test_sandbox.py, test_scoring.py, test_eval.py, test_regression.py, test_llm_adapter.py, test_importers.py</li>
-    <li>scripts/02_generate_report.py, scripts/03_regression_demo.py, scripts/05_llm_adapter_demo.py, scripts/06_import_demo.py, docs/PLAN.md</li>
+    <li>tasks/, examples/ (the 13 case-study tasks and fixtures)</li>
+    <li>tests/test_tools.py, test_runtime.py, test_traces.py, test_replay.py, test_sandbox.py, test_scoring.py, test_eval.py, test_regression.py, test_llm_adapter.py, test_importers.py, test_case_study.py, test_site_quality.py</li>
+    <li>scripts/02_generate_report.py, scripts/03_regression_demo.py, scripts/05_llm_adapter_demo.py, scripts/06_import_demo.py, scripts/07_case_study.py</li>
   </ul>
 
-  <h2>Current test/result status</h2>
-  <p>Scaffold-layout, task-format, tool, and runtime tests pass under
-  <code>python3 -m pytest -q</code>. <code>tests/test_runtime.py</code> covers the agent
-  interface, workspace preparation, allowed-tool gating, scoring, and full runs: the scripted
-  agent fixes the <code>tiny_python_bug</code> fixture end to end (failing → passing) and the
-  final diff is captured, while the mock agent leaves it failing. Tests needing <code>git</code>
+  <h2 id="tests">Current test/result status</h2>
+  <p>The full CPU-only suite passes under <code>python3 -m pytest -q</code> — no model, no
+  network, no API key. It spans the agent interface and runtime loop (the scripted agent fixes a
+  fixture end to end while the null mock leaves it failing), the trace recorder and replay, every
+  sandbox rule and the secret redactor, all scoring methods and the suite runner, the
+  regression/flakiness buckets and the determinism check, the LLM adapter (offline), and the
+  importer (round-trip + verify-catches-forgery). The Milestone 12 case study runs 13 tasks × the
+  baselines into a committed, byte-stable CSV; a layout test asserts every required website page
+  carries the six standard sections and links to the whole nav. Tests needing <code>git</code>
   skip when it is absent.</p>
 
-  <h2>Open questions / limitations</h2>
+  <h2 id="limits">Open questions / limitations</h2>
   <ul>
     <li>The runtime enforces workspace confinement, capability gating, and the Milestone 7
       <strong>sandbox policy</strong> (path/command/network gating, runtime/output caps, secret
       redaction) — but <strong>not</strong> process/namespace isolation. Command matching is by
       program name and network enforcement is heuristic; a containerized runner is a future option.</li>
     <li>Scoring covers all four methods plus a custom registry and a suite runner (Milestone 8);
-      regression comparison and flakiness across result files is Milestone 9. A passing test command
-      is evidence, not proof, of correctness.</li>
+      regression comparison and flakiness across result files landed in Milestone 9. A passing test
+      command is evidence, not proof, of correctness.</li>
     <li>The LLM adapter's cost guard is bounded by its inputs: pricing is approximate (verify before
       a paid run; an unpriced model is refused) and token counts are a <code>chars/4</code> heuristic;
       the offline fake replays a fixed solution, demonstrating the harness, not model reasoning.</li>

@@ -1,6 +1,6 @@
 # Limitations and non-goals
 
-> **Status:** current as of Milestone 11. Updated at every milestone.
+> **Status:** current as of Milestone 12 (Milestone 13 polishes the website only). Updated at every milestone.
 
 ## What is true today
 
