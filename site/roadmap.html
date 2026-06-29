@@ -26,7 +26,7 @@
 <main>
   <h1>Roadmap</h1>
   <p class="lede">Built milestone by milestone; committed locally after each coherent step.</p>
-  <p><span class="status scaffold">status: Milestone 3 complete</span></p>
+  <p><span class="status scaffold">status: Milestone 4 complete</span></p>
 
   <h2>Brief explanation</h2>
   <p>The platform is built in small, verifiable milestones. Each milestone runs its tests,
@@ -39,7 +39,7 @@
     <tr><td>1</td><td>Environment and repository hygiene</td><td>done</td></tr>
     <tr><td>2</td><td>Versioned task format</td><td>done</td></tr>
     <tr><td>3</td><td>Tool registry and core tools</td><td>done</td></tr>
-    <tr><td>4</td><td>Local runtime state machine</td><td>planned</td></tr>
+    <tr><td>4</td><td>Local runtime state machine</td><td>done</td></tr>
     <tr><td>5</td><td>Trace recorder</td><td>planned</td></tr>
     <tr><td>6</td><td>Replay and debugging tools</td><td>planned</td></tr>
     <tr><td>7</td><td>Permission policies and sandbox controls</td><td>planned</td></tr>
@@ -53,21 +53,23 @@
   </table>
 
   <h2>Current implementation status</h2>
-  <p>Milestones 0–3 are complete: package scaffold, CLI, docs skeleton, this website,
+  <p>Milestones 0–4 are complete: package scaffold, CLI, docs skeleton, this website,
   packaging, CPU-only tests, an environment check and repository hygiene scanner, a versioned
-  task format (schema, loader, example tasks, and <code>tasks</code> CLI), and a tool registry
-  with seven structured core tools (and a <code>tools</code> CLI).</p>
+  task format (schema, loader, example tasks, and <code>tasks</code> CLI), a tool registry
+  with seven structured core tools (and a <code>tools</code> CLI), and a local runtime state
+  machine that drives mock and scripted agents over a task (workspace preparation, tool
+  gating, test execution, minimal scoring, and a <code>run</code> CLI).</p>
 
   <h2>Relevant files</h2>
   <ul class="files">
     <li>docs/PLAN.md</li>
     <li>docs/milestones/</li>
     <li>docs/commits/, docs/review_notes/</li>
-    <li>src/code_agent_runtime/tools/</li>
+    <li>src/code_agent_runtime/agents/, src/code_agent_runtime/runtime/</li>
   </ul>
 
   <h2>Current test/result status</h2>
-  <p>All CPU-only tests pass. Next: Milestone 4 — Local runtime state machine.</p>
+  <p>All CPU-only tests pass. Next: Milestone 5 — Trace recorder.</p>
 
   <h2>Open questions / limitations</h2>
   <p>The plan may evolve as real subsystems land; this table is updated at every milestone.</p>

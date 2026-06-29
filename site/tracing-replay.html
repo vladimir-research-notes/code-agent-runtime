@@ -39,12 +39,17 @@
   not need to re-execute every command to be useful.</p>
 
   <h2>Current implementation status</h2>
-  <p>Not implemented. The trace schema and recorder land in Milestone 5; inspection and
-  replay tooling in Milestone 6.</p>
+  <p>Not persisted yet, but the raw material exists. The runtime (Milestone 4) already returns
+  a structured, JSON-serialisable <code>RunResult</code>: per-step records (the agent action,
+  its arguments, whether it was allowed, and the structured tool result), the test result, the
+  final diff, the score, and the outcome. That is the first draft of the trace schema. The
+  dedicated trace schema and recorder that persist this to disk land in Milestone 5; inspection
+  and replay tooling in Milestone 6.</p>
 
   <h2>Relevant files</h2>
   <ul class="files">
-    <li>src/code_agent_runtime/traces/ (planned)</li>
+    <li>src/code_agent_runtime/runtime/state.py (RunResult, StepRecord — proto-trace)</li>
+    <li>src/code_agent_runtime/traces/ (schema, recorder — planned, Milestone 5)</li>
     <li>docs/ARCHITECTURE.md</li>
     <li>docs/RESEARCH_QUESTIONS.md</li>
   </ul>

@@ -1,8 +1,9 @@
 # Architecture
 
-> **Status:** skeleton (Milestone 0). The component boundaries below are the
-> design target. Only the package scaffold and CLI exist today; subsystems are
-> filled in milestone by milestone (see [`PLAN.md`](PLAN.md)).
+> **Status:** Milestone 4. Tasks, tools, and the runtime loop are implemented;
+> tracing, sandbox, full scoring, reports, and adapters are filled in milestone
+> by milestone (see [`PLAN.md`](PLAN.md)). The component boundaries below are the
+> design target.
 
 ## Overview
 
@@ -59,7 +60,10 @@ task ──▶ workspace ──▶ agent loop ──▶ tools ──▶ tests �
 - [x] Tool registry and seven core tools — read/write/patch/shell/git-diff/
       tests/search, with structured results, workspace confinement, and a
       `tools list`/`show` CLI (Milestone 3).
-- [ ] Runtime loop, tracing, sandbox, scoring, reports, adapters — pending later
+- [x] Local runtime state machine — mock and scripted agents, workspace
+      preparation, allowed-tool gating, test execution, minimal scoring, and a
+      `run` CLI returning a structured `RunResult` (Milestone 4).
+- [ ] Tracing, replay, sandbox, full scoring, reports, adapters — pending later
       milestones.
 
 ## Relevant files
@@ -67,10 +71,16 @@ task ──▶ workspace ──▶ agent loop ──▶ tools ──▶ tests �
 - `src/code_agent_runtime/__init__.py`, `src/code_agent_runtime/cli.py`
 - `src/code_agent_runtime/tasks/` (schema, loader, fixtures)
 - `src/code_agent_runtime/tools/` (registry, base, seven core tools)
+- `src/code_agent_runtime/agents/` (base, mock, scripted, solutions)
+- `src/code_agent_runtime/runtime/` (state, execution, agent_loop, report)
 - `tasks/`, `examples/` (example task definitions and fixtures)
 - `docs/PLAN.md` (target layout and milestones)
 
 ## Open questions
 
-- What is the minimal trace schema that still supports faithful replay?
+- What is the minimal trace schema that still supports faithful replay? The
+  Milestone 4 `RunResult`/`StepRecord` shape is the first draft of the answer.
 - Where should the policy/mechanism boundary sit for shell execution?
+- The planned `runtime/context.py` and `runtime/tool_registry.py` were collapsed
+  (context is `RunConfig` + `ToolContext`; the registry lives in `tools/`). Keep
+  that, or restore the split as the runtime grows?

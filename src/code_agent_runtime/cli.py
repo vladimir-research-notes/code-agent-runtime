@@ -2,10 +2,10 @@
 
 The CLI is intentionally minimal at this stage. It exposes version/status
 commands, the Milestone 1 operational checks (``env-check``, ``hygiene``), the
-Milestone 2 task tools (``tasks list`` / ``tasks show``), and the Milestone 3
-tool registry (``tools list`` / ``tools show``). Task running, tracing, replay,
-scoring, and reporting subcommands are added in later milestones (see
-``docs/PLAN.md``).
+Milestone 2 task tools (``tasks list`` / ``tasks show``), the Milestone 3 tool
+registry (``tools list`` / ``tools show``), and the Milestone 4 runtime (``run``).
+Tracing, replay, full scoring, and suite reporting subcommands are added in later
+milestones (see ``docs/PLAN.md``).
 """
 
 from __future__ import annotations
@@ -17,15 +17,17 @@ import textwrap
 from collections.abc import Sequence
 
 from . import PROJECT_NAME, PROJECT_SUMMARY, __version__
+from . import agents as _agents
 from . import environment as _environment
 from . import hygiene as _hygiene
+from . import runtime as _runtime
 from . import tasks as _tasks
 from . import tools as _tools
 
 # The milestone the runtime currently implements. Kept here so ``info`` can
 # report honest project status without scanning the filesystem.
-CURRENT_MILESTONE = "Milestone 3 — Tool registry and core tools"
-NEXT_MILESTONE = "Milestone 4 — Local runtime state machine"
+CURRENT_MILESTONE = "Milestone 4 — Local runtime state machine"
+NEXT_MILESTONE = "Milestone 5 — Trace recorder"
 
 #: Default directory the ``tasks`` subcommands scan.
 DEFAULT_TASKS_DIR = "tasks"
@@ -92,6 +94,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     _add_tasks_parser(subparsers)
     _add_tools_parser(subparsers)
+    _add_run_parser(subparsers)
 
     return parser
 
@@ -139,6 +142,42 @@ def _add_tools_parser(subparsers: argparse._SubParsersAction) -> None:
     p_show.add_argument("name", help="Tool name (e.g. read_file).")
     p_show.add_argument("--json", action="store_true", help="Emit the spec as JSON.")
     p_show.set_defaults(func=_cmd_tools_show)
+
+
+def _add_run_parser(subparsers: argparse._SubParsersAction) -> None:
+    """Add the ``run`` command: drive a task with a mock or scripted agent."""
+    p_run = subparsers.add_parser(
+        "run",
+        help="Run a task with a deterministic mock or scripted agent.",
+    )
+    p_run.add_argument("ident", help="Task id (e.g. bugfix/sum-range-off-by-one) or path.")
+    p_run.add_argument(
+        "--dir", default=DEFAULT_TASKS_DIR, help="Directory to search by id (default: tasks/)."
+    )
+    p_run.add_argument(
+        "--agent",
+        choices=["mock", "scripted"],
+        default="scripted",
+        help="Which deterministic agent to run (default: scripted).",
+    )
+    p_run.add_argument(
+        "--max-steps",
+        type=int,
+        default=_runtime.RunConfig().max_steps,
+        help="Hard cap on agent steps (default: %(default)s).",
+    )
+    p_run.add_argument(
+        "--no-tests",
+        action="store_true",
+        help="Skip running the task's test command after the agent loop.",
+    )
+    p_run.add_argument(
+        "--keep-workspace",
+        action="store_true",
+        help="Keep the ephemeral workspace on disk and print its path.",
+    )
+    p_run.add_argument("--json", action="store_true", help="Emit the run result as JSON.")
+    p_run.set_defaults(func=_cmd_run)
 
 
 def _make_help_printer(parser: argparse.ArgumentParser):
@@ -310,6 +349,43 @@ def _format_tool_spec(spec: _tools.ToolSpec) -> str:
         req = "required" if param.required else "optional"
         lines.append(f"    - {param.name} ({param.type}, {req}): {param.description}")
     return "\n".join(lines)
+
+
+def _cmd_run(args: argparse.Namespace) -> int:
+    # Stage 1 — load and validate the task (fixture must exist to run it).
+    try:
+        task = _tasks.find_task(args.dir, args.ident, resolve_fixture=True)
+    except _tasks.TaskValidationError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+
+    if args.agent == "mock":
+        agent: _agents.Agent = _agents.MockAgent()
+    else:
+        try:
+            agent = _agents.build_scripted_agent(task)
+        except KeyError as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
+
+    config = _runtime.RunConfig(
+        max_steps=args.max_steps,
+        run_tests=not args.no_tests,
+        keep_workspace=args.keep_workspace,
+    )
+    result = _runtime.run_task(task, agent, config=config)
+
+    if args.json:
+        print(json.dumps(result.to_dict(), indent=2))
+    else:
+        print(_runtime.format_run_report(result))
+
+    # Exit code mirrors the verdict: 0 passed/not-scored, 1 failed, 2 errored.
+    if result.outcome == _runtime.RunOutcome.ERROR:
+        return 2
+    if result.outcome == _runtime.RunOutcome.FAILED:
+        return 1
+    return 0
 
 
 def main(argv: Sequence[str] | None = None) -> int:

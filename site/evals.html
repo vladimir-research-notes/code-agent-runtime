@@ -46,19 +46,28 @@
   across two result files, with a rerun mode for flakiness analysis.</p>
 
   <h2>Current implementation status</h2>
-  <p>Not implemented. Scoring and reports land in Milestone 8; regression/flakiness in
-  Milestone 9; the reproducible case study in Milestone 12.</p>
+  <p>The single-run primitive exists (Milestone 4): <code>code-agent-runtime run &lt;task&gt;
+  --agent mock|scripted</code> drives one agent over one task and returns a structured
+  <code>RunResult</code> with the per-run signals the eval will aggregate — outcome
+  (pass/fail/not-scored), tool-call count, command count, the final diff, and the test
+  result. Minimal scoring (<code>test_command</code>, <code>none</code>) is built in. The
+  <em>suite</em> runner, full scoring methods, and Markdown/HTML reports land in Milestone 8;
+  regression/flakiness in Milestone 9; the reproducible case study in Milestone 12.</p>
 
   <h2>Relevant files</h2>
   <ul class="files">
-    <li>src/code_agent_runtime/scoring/ (planned)</li>
+    <li>src/code_agent_runtime/runtime/ (run_task, RunResult, scoring)</li>
+    <li>src/code_agent_runtime/agents/ (mock, scripted baselines)</li>
+    <li>src/code_agent_runtime/scoring/ (full scorer — planned, Milestone 8)</li>
     <li>docs/METHODOLOGY.md</li>
-    <li>results/ (created when evals run)</li>
+    <li>results/ (created when the suite runner lands)</li>
   </ul>
 
   <h2>Current test/result status</h2>
-  <p>No eval tests yet. Validation will run a small suite with mock/scripted agents and
-  generate a Markdown/HTML report.</p>
+  <p>Runtime tests exercise single runs of the mock and scripted agents over the shipped
+  tasks (<code>tests/test_runtime.py</code>): the scripted agent passes the bugfix and CLI
+  tasks, the mock agent fails the bugfix. No multi-agent suite report is generated yet; that
+  validation arrives with Milestone 8.</p>
 
   <h2>Open questions / limitations</h2>
   <ul>

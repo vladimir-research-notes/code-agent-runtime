@@ -26,7 +26,7 @@
 <main>
   <h1>Architecture</h1>
   <p class="lede">How a versioned task and an agent become a scored, replayable trace.</p>
-  <p><span class="status scaffold">status: Milestone 3 — tasks and tools implemented; runtime/tracing/sandbox pending</span></p>
+  <p><span class="status scaffold">status: Milestone 4 — tasks, tools, and the runtime loop implemented; tracing/sandbox pending</span></p>
 
   <h2>Brief explanation</h2>
   <p>The runtime is an explicit pipeline. Each stage has a clear input and output so that
@@ -71,12 +71,36 @@
   a test asserts it equals the task schema's <code>KNOWN_TOOLS</code>, so a task can never
   request a tool that does not exist.</p>
 
+  <h2>Runtime loop (Milestone 4)</h2>
+  <p>The runtime turns a validated task and an agent into a single structured, scored
+  <code>RunResult</code>. An <strong>agent</strong> only <em>proposes</em> the next action
+  (run a tool, or finish); the <strong>runtime</strong> owns every side effect — preparing
+  the workspace, gating each call against the task's <code>allowed_tools</code>, dispatching
+  it, running the task's test command, capturing the final diff, scoring, and reporting. Two
+  deterministic, model-free agents ship: <code>mock</code> (a null baseline that does
+  nothing) and <code>scripted</code> (replays a fixed plan, with built-in solutions for the
+  example tasks). Run one with <code>code-agent-runtime run &lt;task&gt;</code>.</p>
+  <pre><code>load task -&gt; prepare workspace -&gt; [agent step -&gt; gate -&gt; execute tool]* -&gt; run tests -&gt; score -&gt; report</code></pre>
+  <table>
+    <tr><th>Stage</th><th>What happens</th></tr>
+    <tr><td>prepare workspace</td><td>copy the fixture to a fresh temp dir; <code>git init</code> + commit</td></tr>
+    <tr><td>agent step</td><td><code>agent.propose(Observation)</code> returns one <code>AgentAction</code></td></tr>
+    <tr><td>execute tool</td><td>gate against <code>allowed_tools</code>, then dispatch via the registry</td></tr>
+    <tr><td>run tests</td><td>run the task's <code>test_command</code> through the <code>run_tests</code> tool</td></tr>
+    <tr><td>score</td><td><code>test_command</code> → pass/fail; <code>none</code> → not scored</td></tr>
+    <tr><td>report</td><td>build the <code>RunResult</code>; render text or JSON</td></tr>
+  </table>
+  <p>Containment here is workspace confinement plus capability gating only — there is no
+  process isolation, resource limit, or network policy yet (that is the sandbox, Milestone 7).
+  Scoring is intentionally minimal; the full scorer, suite runner, and reports are Milestone 8.</p>
+
   <h2>Current implementation status</h2>
   <ul>
     <li>Package scaffold and CLI — done.</li>
     <li>Versioned task format (Milestone 2) — done.</li>
     <li>Tool registry and seven core tools (Milestone 3) — done.</li>
-    <li>Runtime loop, tracing, sandbox, scoring, reports, adapters — pending.</li>
+    <li>Runtime loop with mock/scripted agents and a <code>run</code> CLI (Milestone 4) — done.</li>
+    <li>Tracing, replay, sandbox, full scoring, reports, adapters — pending.</li>
   </ul>
 
   <h2>Relevant files</h2>
@@ -85,25 +109,31 @@
     <li>src/code_agent_runtime/cli.py</li>
     <li>src/code_agent_runtime/tasks/ (schema, loader, fixtures)</li>
     <li>src/code_agent_runtime/tools/ (base, registry, seven tools, _exec)</li>
-    <li>tests/test_tools.py</li>
+    <li>src/code_agent_runtime/agents/ (base, mock, scripted, solutions)</li>
+    <li>src/code_agent_runtime/runtime/ (state, execution, agent_loop, report)</li>
+    <li>tests/test_tools.py, tests/test_runtime.py</li>
     <li>docs/PLAN.md</li>
   </ul>
 
   <h2>Current test/result status</h2>
-  <p>Scaffold-layout, task-format, and tool tests pass under
-  <code>python3 -m pytest -q</code>. <code>tests/test_tools.py</code> covers each tool,
-  workspace confinement, argument validation, the registry, the CLI, and an integration test
-  that fixes the <code>tiny_python_bug</code> fixture end to end (read → search → patch →
-  run tests). Tests needing <code>git</code> skip when it is absent.</p>
+  <p>Scaffold-layout, task-format, tool, and runtime tests pass under
+  <code>python3 -m pytest -q</code>. <code>tests/test_runtime.py</code> covers the agent
+  interface, workspace preparation, allowed-tool gating, scoring, and full runs: the scripted
+  agent fixes the <code>tiny_python_bug</code> fixture end to end (failing → passing) and the
+  final diff is captured, while the mock agent leaves it failing. Tests needing <code>git</code>
+  skip when it is absent.</p>
 
   <h2>Open questions / limitations</h2>
   <ul>
-    <li>Tools provide <strong>workspace confinement only</strong> — no process isolation,
-      resource limits, or network policy yet. That is Milestone 7 (sandbox).</li>
+    <li>The runtime provides <strong>workspace confinement and capability gating only</strong>
+      — no process isolation, resource limits, or network policy yet. That is Milestone 7
+      (sandbox).</li>
+    <li>Scoring covers <code>test_command</code> and <code>none</code> only; the other methods
+      and the suite/regression machinery are Milestone 8.</li>
     <li><code>apply_patch</code> applies exact-context unified diffs (no fuzzy matching, no
       binary patches, no rename detection).</li>
-    <li>What is the minimal trace schema that still supports faithful replay?</li>
-    <li>Where should the policy/mechanism boundary sit for shell execution?</li>
+    <li>What is the minimal trace schema that still supports faithful replay? The
+      <code>RunResult</code> shape is the first draft of that answer.</li>
   </ul>
 </main>
 <footer class="site">Code Agent Runtime — research/engineering scaffold. Built milestone by milestone.</footer>

@@ -8,12 +8,15 @@ infrastructure *around* coding agents — task setup, tools, permissions,
 execution, tracing, replay, scoring, regression comparison, and reports. It is
 **not** a tutorial, a clone of a commercial tool, or a benchmark leaderboard.
 
-> Status: **Milestone 2 — Versioned task format.** This repository is being built
-> milestone by milestone (see [`docs/PLAN.md`](docs/PLAN.md)). The package, docs,
-> website, packaging, and tests exist, plus an environment check, a repository
-> hygiene scanner, and a versioned task format (schema, loader, example tasks, and
-> `tasks` CLI). The execution side of the runtime (tools, execution, tracing,
-> scoring) is not yet implemented.
+> Status: **Milestone 4 — Local runtime state machine.** This repository is being
+> built milestone by milestone (see [`docs/PLAN.md`](docs/PLAN.md)). The package,
+> docs, website, packaging, and tests exist, plus an environment check, a
+> repository hygiene scanner, a versioned task format (schema, loader, example
+> tasks, `tasks` CLI), a tool registry with seven structured core tools (`tools`
+> CLI), and a runtime loop that drives mock and scripted agents over a task
+> (workspace preparation, tool gating, test execution, minimal scoring, `run`
+> CLI). Tracing, replay, the sandbox, full scoring, and reports are not yet
+> implemented.
 
 ## Design constraints
 
@@ -88,6 +91,29 @@ PYTHONPATH=src python3 -m code_agent_runtime tasks show bugfix/sum-range-off-by-
 The three shipped tasks (`bugfix/sum-range-off-by-one`, `cli/add-shout-flag`,
 `security/unsafe-command-demo`) point at fixtures under `examples/`. See
 [`tasks/README.md`](tasks/README.md) for the full field reference.
+
+### Running a task (Milestone 4)
+
+The runtime drives a deterministic agent over a task and returns a structured,
+scored result. It prepares a disposable workspace (a copy of the fixture, never
+the committed one), gates each tool call against the task's `allowed_tools`, runs
+the task's test command, captures the final diff, and reports. No model, network,
+or paid API is involved.
+
+```bash
+# Scripted agent: replays a built-in solution and passes the bugfix task.
+PYTHONPATH=src python3 -m code_agent_runtime run bugfix/sum-range-off-by-one
+
+# Mock agent: the null baseline (does nothing) — leaves the task failing.
+PYTHONPATH=src python3 -m code_agent_runtime run bugfix/sum-range-off-by-one --agent mock
+
+# Machine-readable result (per-step records, tests, diff, score):
+PYTHONPATH=src python3 -m code_agent_runtime run cli/add-shout-flag --json
+```
+
+Containment is workspace confinement plus capability gating only — there is **no**
+process isolation, resource limit, or network policy yet; that is the sandbox
+(Milestone 7). Do not run untrusted tasks against a real host until it lands.
 
 Optionally install the package and dev extras in a virtual environment:
 
