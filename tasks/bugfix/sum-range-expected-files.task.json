@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "id": "bugfix/sum-range-expected-files",
+  "title": "Fix sum_to() (scored by file contents)",
+  "prompt": "Fix the off-by-one in sum_to() in summation.py so the loop iterates the inclusive range. This task is scored by expected_files: success means summation.py exists and its loop reads `for i in range(1, n + 1)` after the change.",
+  "fixture": "../../examples/tiny_python_bug",
+  "allowed_tools": ["read_file", "search_repo", "apply_patch"],
+  "timeout_seconds": 120,
+  "scoring_method": "expected_files",
+  "scoring_config": {
+    "present": ["summation.py"],
+    "contains": [
+      {"path": "summation.py", "text": "for i in range(1, n + 1)"}
+    ]
+  },
+  "resource_limits": {
+    "cpu_seconds": 30,
+    "memory_mb": 512,
+    "network": false
+  },
+  "metadata": {
+    "category": "bugfix",
+    "language": "python",
+    "difficulty": "intro",
+    "scores_demonstrated": "expected_files"
+  }
+}

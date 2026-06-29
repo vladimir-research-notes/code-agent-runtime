@@ -5,11 +5,13 @@ commands, the Milestone 1 operational checks (``env-check``, ``hygiene``), the
 Milestone 2 task tools (``tasks list`` / ``tasks show``), the Milestone 3 tool
 registry (``tools list`` / ``tools show``), the Milestone 4 runtime (``run``)
 with optional Milestone 5 trace recording (``run --trace``), the Milestone 6
-trace inspection/replay tooling (``trace show`` / ``trace report``), and the
+trace inspection/replay tooling (``trace show`` / ``trace report``), the
 Milestone 7 sandbox controls (enforced by default on ``run``, with
-``run --no-sandbox`` to disable and ``run --agent probe`` to exercise them). Full
-scoring and suite reporting subcommands are added in later milestones (see
-``docs/PLAN.md``).
+``run --no-sandbox`` to disable and ``run --agent probe`` to exercise them), and
+the Milestone 8 scoring/eval suite (``eval run`` runs a task×agent matrix and
+emits a result file and a Markdown/HTML report; ``eval report`` re-renders a saved
+result file). Later milestones add regression comparison and optional model
+adapters (see ``docs/PLAN.md``).
 """
 
 from __future__ import annotations
@@ -25,15 +27,17 @@ from . import PROJECT_NAME, PROJECT_SUMMARY, __version__
 from . import agents as _agents
 from . import environment as _environment
 from . import hygiene as _hygiene
+from . import reports as _reports
 from . import runtime as _runtime
+from . import scoring as _scoring
 from . import tasks as _tasks
 from . import tools as _tools
 from . import traces as _traces
 
 # The milestone the runtime currently implements. Kept here so ``info`` can
 # report honest project status without scanning the filesystem.
-CURRENT_MILESTONE = "Milestone 7 — Permission policies and sandbox controls"
-NEXT_MILESTONE = "Milestone 8 — Scoring and evaluation reports"
+CURRENT_MILESTONE = "Milestone 8 — Scoring and evaluation reports"
+NEXT_MILESTONE = "Milestone 9 — Regression comparison and flakiness analysis"
 
 #: Default directory the ``tasks`` subcommands scan.
 DEFAULT_TASKS_DIR = "tasks"
@@ -102,6 +106,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_tools_parser(subparsers)
     _add_run_parser(subparsers)
     _add_trace_parser(subparsers)
+    _add_eval_parser(subparsers)
 
     return parser
 
@@ -245,6 +250,87 @@ def _add_trace_parser(subparsers: argparse._SubParsersAction) -> None:
         help="Write the Markdown report to PATH instead of stdout.",
     )
     p_report.set_defaults(func=_cmd_trace_report)
+
+
+def _add_eval_parser(subparsers: argparse._SubParsersAction) -> None:
+    """Add the ``eval`` command group (``run`` / ``report``) — Milestone 8.
+
+    ``eval run`` runs a task×agent matrix, scores each run, and writes a result
+    file and/or a Markdown/HTML report. ``eval report`` re-renders a saved result
+    file without re-running anything.
+    """
+    p_eval = subparsers.add_parser(
+        "eval",
+        help="Run a scoring/eval suite and generate Markdown/HTML reports.",
+    )
+    p_eval.set_defaults(func=_make_help_printer(p_eval))
+    actions = p_eval.add_subparsers(dest="eval_command", metavar="<action>")
+
+    p_run = actions.add_parser("run", help="Run a suite over tasks and agents.")
+    p_run.add_argument(
+        "idents",
+        nargs="*",
+        help="Task ids/paths to include (default: every task under --dir).",
+    )
+    p_run.add_argument(
+        "--dir", default=DEFAULT_TASKS_DIR, help="Directory to scan (default: tasks/)."
+    )
+    p_run.add_argument(
+        "--agent",
+        choices=["mock", "scripted", "probe", "all"],
+        default="all",
+        help="Agent(s) to run (default: all — mock, scripted where solvable, probe where defined).",
+    )
+    p_run.add_argument(
+        "--no-sandbox",
+        action="store_true",
+        help="Disable sandbox-policy enforcement for the runs.",
+    )
+    p_run.add_argument(
+        "--max-steps",
+        type=int,
+        default=_runtime.RunConfig().max_steps,
+        help="Hard cap on agent steps per run (default: %(default)s).",
+    )
+    p_run.add_argument(
+        "--no-tests",
+        action="store_true",
+        help="Skip running each task's test command.",
+    )
+    p_run.add_argument(
+        "--out", default=None, metavar="PATH", help="Write the suite result as JSON to PATH."
+    )
+    p_run.add_argument(
+        "--report",
+        default=None,
+        metavar="PATH",
+        help="Write a report to PATH (format inferred: .html → HTML, else Markdown).",
+    )
+    p_run.add_argument(
+        "--format",
+        choices=["markdown", "html"],
+        default="markdown",
+        help="Format for the report printed to stdout (default: markdown).",
+    )
+    p_run.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the suite result as JSON to stdout instead of a report.",
+    )
+    p_run.set_defaults(func=_cmd_eval_run)
+
+    p_report = actions.add_parser("report", help="Re-render a saved suite result file.")
+    p_report.add_argument("path", help="Path to a suite result JSON (from `eval run --out`).")
+    p_report.add_argument(
+        "--format",
+        choices=["markdown", "html"],
+        default="markdown",
+        help="Report format (default: markdown).",
+    )
+    p_report.add_argument(
+        "--out", default=None, metavar="PATH", help="Write the report to PATH instead of stdout."
+    )
+    p_report.set_defaults(func=_cmd_eval_report)
 
 
 def _make_help_printer(parser: argparse.ArgumentParser):
@@ -510,6 +596,86 @@ def _cmd_trace_report(args: argparse.Namespace) -> int:
         print(f"report written: {out}", file=sys.stderr)
     else:
         print(markdown)
+    return 0
+
+
+def _render_suite(suite: _scoring.SuiteResult, fmt: str) -> str:
+    """Render a suite result as Markdown or HTML."""
+    if fmt == "html":
+        return _reports.suite_to_html(suite)
+    return _reports.suite_to_markdown(suite)
+
+
+def _fmt_for_path(path: str) -> str:
+    return "html" if path.lower().endswith((".html", ".htm")) else "markdown"
+
+
+def _select_eval_tasks(args: argparse.Namespace) -> list[_tasks.Task] | None:
+    """Resolve the tasks for an eval run, or print an error and return ``None``."""
+    try:
+        if args.idents:
+            return [
+                _tasks.find_task(args.dir, ident, resolve_fixture=True) for ident in args.idents
+            ]
+        return list(_tasks.discover_tasks(args.dir, resolve_fixture=True))
+    except _tasks.TaskValidationError as exc:
+        print(str(exc), file=sys.stderr)
+        return None
+
+
+def _cmd_eval_run(args: argparse.Namespace) -> int:
+    tasks = _select_eval_tasks(args)
+    if tasks is None:
+        return 1
+    if not tasks:
+        print(f"No tasks found under {args.dir}/.", file=sys.stderr)
+        return 1
+
+    agents = (
+        _scoring.DEFAULT_AGENTS if args.agent == "all" else (args.agent,)
+    )
+    config = _runtime.RunConfig(
+        max_steps=args.max_steps,
+        run_tests=not args.no_tests,
+        enforce_sandbox=not args.no_sandbox,
+    )
+    suite = _scoring.run_suite(tasks, agents, config=config, label=f"dir={args.dir}")
+
+    # Persisted artifacts (paths go to stderr so --json stdout stays clean JSON).
+    if args.out:
+        written = _scoring.write_suite_result(suite, args.out)
+        print(f"result written: {written}", file=sys.stderr)
+    if args.report:
+        fmt = _fmt_for_path(args.report)
+        out = Path(args.report)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(_render_suite(suite, fmt), encoding="utf-8")
+        print(f"report written: {out} ({fmt})", file=sys.stderr)
+
+    if args.json:
+        print(json.dumps(suite.to_dict(), indent=2))
+    else:
+        print(_render_suite(suite, args.format))
+
+    # A completed suite returns 0; a harness-level error in any run returns 2.
+    errored = any(r.outcome == _runtime.RunOutcome.ERROR for r in suite.records)
+    return 2 if errored else 0
+
+
+def _cmd_eval_report(args: argparse.Namespace) -> int:
+    try:
+        suite = _scoring.load_suite_result(args.path)
+    except (OSError, ValueError) as exc:
+        print(f"could not load suite result {args.path!r}: {exc}", file=sys.stderr)
+        return 1
+    text = _render_suite(suite, args.format)
+    if args.out:
+        out = Path(args.out)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(text, encoding="utf-8")
+        print(f"report written: {out}", file=sys.stderr)
+    else:
+        print(text)
     return 0
 
 

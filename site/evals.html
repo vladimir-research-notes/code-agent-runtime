@@ -26,53 +26,68 @@
 <main>
   <h1>Evals</h1>
   <p class="lede">Reproducible, inspectable, honest measurement — not a leaderboard.</p>
-  <p><span class="status scaffold">status: planned (Milestones 8–9, 12) — not implemented yet</span></p>
+  <p><span class="status done">status: implemented (Milestone 8) — scoring, suite runner, reports</span></p>
 
   <h2>Brief explanation</h2>
-  <p>An eval runs one or more agents over a suite of tasks and scores each run. Deterministic
-  mock and scripted baselines establish a floor and exercise the harness without any model.</p>
+  <p>An eval runs one or more agents over a suite of tasks and <strong>scores</strong> each
+  run. Deterministic mock and scripted baselines establish a floor and exercise the harness
+  without any model. The result is a table — one row per run — that serialises to JSON and
+  renders to Markdown/HTML.</p>
 
   <h2>Deeper technical explanation</h2>
-  <p>Planned signals per run:</p>
+  <p>Scoring is a pure function of the evidence a run already produced (the test result, the
+  captured diff, the live workspace), so a verdict is reproducible and unit-testable without
+  re-running anything. Five scoring methods, selected per task by <code>scoring_method</code>
+  (with method-specific <code>scoring_config</code>):</p>
   <table>
-    <tr><th>Signal</th><th>Source</th></tr>
-    <tr><td>Task success (pass/fail)</td><td>test command / file checks</td></tr>
-    <tr><td>Diff conformance</td><td>git diff vs. constraints</td></tr>
-    <tr><td>Tool-call count, command count</td><td>trace</td></tr>
-    <tr><td>Runtime</td><td>wall-clock, bounded by timeout</td></tr>
-    <tr><td>Failure reason</td><td>trace + scorer</td></tr>
+    <tr><th>Method</th><th>Passes when…</th></tr>
+    <tr><td><code>test_command</code></td><td>the test command exits 0 (a timeout fails).</td></tr>
+    <tr><td><code>expected_files</code></td><td>named files exist / are absent / contain text.</td></tr>
+    <tr><td><code>diff_constraint</code></td><td>the change stays within <code>allowed_paths</code> (and <code>max_files</code>, no forbidden paths, non-empty). A <em>constraint</em>, not a correctness check.</td></tr>
+    <tr><td><code>custom</code></td><td>a named scorer from an in-code registry says so; the shipped <code>tests_pass_and_diff_scope</code> combines correctness with scope.</td></tr>
+    <tr><td><code>none</code></td><td>not auto-scored (judged by inspection, e.g. the sandbox demo) — reported <code>not_scored</code>.</td></tr>
   </table>
-  <p>Regression comparison classifies tasks as improved, regressed, unchanged, or flaky
-  across two result files, with a rerun mode for flakiness analysis.</p>
+  <p>Each run records the plan's result fields: task id, agent, pass/fail, runtime (wall-clock,
+  measured by the suite layer so the run record stays deterministic), tool-call count, command
+  count, and a failure reason. Build artifacts (<code>__pycache__</code>, <code>*.pyc</code>)
+  are ignored in diff-scope analysis. Run it:</p>
+  <pre><code>code-agent-runtime eval run --dir tasks                 # Markdown report
+code-agent-runtime eval run --dir tasks --json          # machine-readable result
+code-agent-runtime eval run --dir tasks --out r.json --report r.html
+code-agent-runtime eval report r.json                   # re-render a saved result</code></pre>
+  <p>Regression comparison (improved / regressed / unchanged / flaky across two result files)
+  is Milestone 9; the result-file schema is versioned so it can consume these files.</p>
 
   <h2>Current implementation status</h2>
-  <p>The single-run primitive exists (Milestone 4): <code>code-agent-runtime run &lt;task&gt;
-  --agent mock|scripted</code> drives one agent over one task and returns a structured
-  <code>RunResult</code> with the per-run signals the eval will aggregate — outcome
-  (pass/fail/not-scored), tool-call count, command count, the final diff, and the test
-  result. Minimal scoring (<code>test_command</code>, <code>none</code>) is built in. The
-  <em>suite</em> runner, full scoring methods, and Markdown/HTML reports land in Milestone 8;
-  regression/flakiness in Milestone 9; the reproducible case study in Milestone 12.</p>
+  <p>Implemented. <code>scoring/</code> provides the five scorers, the custom-scorer registry
+  hook, and the suite runner (<code>run_suite</code> → a JSON <code>SuiteResult</code>);
+  <code>reports/</code> renders Markdown and standalone HTML. The runtime loop delegates
+  scoring to this layer, scoring before the workspace is cleaned up so filesystem checks work.
+  See <a href="results.html">Results</a> for the real baseline numbers.</p>
 
   <h2>Relevant files</h2>
   <ul class="files">
-    <li>src/code_agent_runtime/runtime/ (run_task, RunResult, scoring)</li>
-    <li>src/code_agent_runtime/agents/ (mock, scripted baselines)</li>
-    <li>src/code_agent_runtime/scoring/ (full scorer — planned, Milestone 8)</li>
-    <li>docs/METHODOLOGY.md</li>
-    <li>results/ (created when the suite runner lands)</li>
+    <li>src/code_agent_runtime/scoring/ (scorer, test/expected_files/diff/custom, suite)</li>
+    <li>src/code_agent_runtime/reports/ (markdown, html)</li>
+    <li>src/code_agent_runtime/runtime/agent_loop.py (delegates scoring)</li>
+    <li>scripts/02_generate_report.py, docs/METHODOLOGY.md, docs/RESULTS.md</li>
+    <li>tests/test_scoring.py, tests/test_eval.py</li>
+    <li>results/ (generated by the suite runner; gitignored)</li>
   </ul>
 
   <h2>Current test/result status</h2>
-  <p>Runtime tests exercise single runs of the mock and scripted agents over the shipped
-  tasks (<code>tests/test_runtime.py</code>): the scripted agent passes the bugfix and CLI
-  tasks, the mock agent fails the bugfix. No multi-agent suite report is generated yet; that
-  validation arrives with Milestone 8.</p>
+  <p><code>tests/test_scoring.py</code> unit-tests every scorer (pass and fail paths, edge
+  cases) and the <code>scoring_config</code> schema validation; <code>tests/test_eval.py</code>
+  covers the suite runner, JSON round-trip, the Markdown/HTML reports, and the
+  <code>eval</code> CLI. The full CPU-only suite passes. The baseline run shows the scripted
+  agent passing every solvable task and the mock agent failing the ones that require a change.</p>
 
   <h2>Open questions / limitations</h2>
   <ul>
     <li>Small task counts make results illustrative, not statistically powerful.</li>
-    <li>A passing test command does not guarantee a correct change.</li>
+    <li>A passing test command is evidence, not proof, of a correct change — and is bounded by
+      the fixture's test coverage (see the Results caveats).</li>
+    <li><code>diff_constraint</code> checks scope, not correctness; combine via a <code>custom</code> scorer.</li>
   </ul>
 </main>
 <footer class="site">Code Agent Runtime — research/engineering scaffold. Built milestone by milestone.</footer>

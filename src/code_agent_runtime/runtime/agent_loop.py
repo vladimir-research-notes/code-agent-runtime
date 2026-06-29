@@ -14,11 +14,14 @@ Design choices:
   ``git_diff`` are issued by the loop through the full registry, so they work
   even when the task does not grant those tools to the agent; they do not count
   toward the agent's ``tool_call_count`` / ``command_count``.
-- **Minimal, honest scoring.** Milestone 4 scores ``test_command`` (pass iff the
-  command exits zero) and ``none`` (not scored). The richer methods
-  (``expected_files``, ``diff_constraint``, ``custom``) and the suite/regression
-  machinery are Milestone 8; until then they resolve to ``not_scored`` with a
-  note rather than a fabricated verdict.
+- **Scoring is delegated.** The loop hands the evidence it gathered — the test
+  result, the captured diff, and the live workspace — to
+  :func:`code_agent_runtime.scoring.score_run`, which dispatches on the task's
+  ``scoring_method`` (``test_command``, ``expected_files``, ``diff_constraint``,
+  ``custom``, ``none``) and returns a verdict (Milestone 8). The run is scored
+  *before* the workspace is cleaned up so a filesystem-checking scorer can read
+  it. The suite runner and reports live in :mod:`code_agent_runtime.scoring` and
+  :mod:`code_agent_runtime.reports`.
 - **No wall-clock timing in the result.** Consistent with the tools layer, the
   :class:`RunResult` stays deterministic and timing-free. Timing lives in the
   optional trace recorder (Milestone 5): pass ``recorder=`` and the loop emits a
@@ -34,6 +37,7 @@ from typing import Any
 
 from ..agents import Agent, Observation
 from ..sandbox import Sandbox, SandboxPolicy
+from ..scoring import score_run
 from ..tasks import Task
 from ..tools import ToolResult, build_registry
 from .execution import (
@@ -186,8 +190,10 @@ def run_task(
                     recorder.diff_captured(diff_result)
 
         # --- score ---------------------------------------------------------
+        # Scored before the workspace is cleaned up (the `finally` below), so the
+        # filesystem-checking scorer (`expected_files`) can read it.
         phase = RunPhase.SCORING
-        score = _score(task, tests_data)
+        score = _score(task, tests_data, diff=diff_data, workspace=workspace.root)
         if recorder is not None:
             recorder.scored(score)
 
@@ -224,38 +230,24 @@ def _finish_trace(recorder, result: RunResult) -> RunResult:
     return result
 
 
-def _score(task: Task, tests_data: Mapping[str, Any] | None) -> dict[str, Any]:
-    """Score the run per the task's ``scoring_method`` (Milestone 4 subset)."""
-    method = task.scoring_method
-    if method == "none":
-        return {
-            "method": method,
-            "outcome": RunOutcome.NOT_SCORED,
-            "passed": None,
-            "detail": "task is not automatically scored (scoring_method 'none')",
-        }
-    if method == "test_command":
-        if tests_data is None:
-            return {
-                "method": method,
-                "outcome": RunOutcome.FAILED,
-                "passed": False,
-                "detail": "no test result (test command did not run)",
-            }
-        passed = bool(tests_data.get("passed"))
-        return {
-            "method": method,
-            "outcome": RunOutcome.PASSED if passed else RunOutcome.FAILED,
-            "passed": passed,
-            "detail": "test command passed" if passed else "test command failed",
-        }
-    # expected_files / diff_constraint / custom are implemented in Milestone 8.
-    return {
-        "method": method,
-        "outcome": RunOutcome.NOT_SCORED,
-        "passed": None,
-        "detail": f"scoring_method {method!r} is implemented in Milestone 8",
-    }
+def _score(
+    task: Task,
+    tests_data: Mapping[str, Any] | None,
+    *,
+    diff: Mapping[str, Any] | None = None,
+    workspace: Any = None,
+) -> dict[str, Any]:
+    """Score the run via the :mod:`code_agent_runtime.scoring` layer (Milestone 8).
+
+    Delegates to :func:`scoring.score_run`, which dispatches on the task's
+    ``scoring_method`` (``test_command``, ``expected_files``, ``diff_constraint``,
+    ``custom``, ``none``). Returns the verdict as the plain dict the loop stores as
+    ``RunResult.score`` — the same four-key shape as before, now with optional
+    per-check ``checks`` / ``extra`` keys. ``workspace`` is the live workspace path
+    so the ``expected_files`` scorer can inspect it; ``diff`` is the captured diff
+    the ``diff_constraint`` scorer constrains.
+    """
+    return score_run(task, tests=tests_data, diff=diff, workspace=workspace).to_dict()
 
 
 def _counts(steps: list[StepRecord]) -> tuple[int, int]:

@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "id": "cli/add-shout-flag-custom",
+  "title": "Add --shout to greet.py (tests pass AND change stays in greet.py)",
+  "prompt": "Add an optional --shout flag to greet.py exactly as in cli/add-shout-flag. This variant is scored by a custom scorer that requires BOTH the test command to pass AND the change to stay confined to greet.py — a single verdict combining correctness with scope.",
+  "fixture": "../../examples/tiny_cli_project",
+  "allowed_tools": ["read_file", "search_repo", "apply_patch", "write_file", "run_tests"],
+  "timeout_seconds": 180,
+  "scoring_method": "custom",
+  "test_command": ["python3", "-m", "pytest", "-q"],
+  "scoring_config": {
+    "name": "tests_pass_and_diff_scope",
+    "allowed_paths": ["greet.py"]
+  },
+  "resource_limits": {
+    "cpu_seconds": 30,
+    "memory_mb": 512,
+    "network": false
+  },
+  "metadata": {
+    "category": "cli_change",
+    "language": "python",
+    "difficulty": "intro",
+    "scores_demonstrated": "custom"
+  }
+}

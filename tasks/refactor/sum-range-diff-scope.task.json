@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "id": "refactor/sum-range-diff-scope",
+  "title": "Fix sum_to() without touching anything but summation.py",
+  "prompt": "Fix the off-by-one in sum_to() in summation.py. This task is scored by diff_constraint: success means the change stays confined to summation.py — touching any other file (or making no change at all) fails, regardless of whether tests would pass.",
+  "fixture": "../../examples/tiny_python_bug",
+  "allowed_tools": ["read_file", "search_repo", "apply_patch"],
+  "timeout_seconds": 120,
+  "scoring_method": "diff_constraint",
+  "scoring_config": {
+    "allowed_paths": ["summation.py"],
+    "max_files": 1
+  },
+  "resource_limits": {
+    "cpu_seconds": 30,
+    "memory_mb": 512,
+    "network": false
+  },
+  "metadata": {
+    "category": "refactor",
+    "language": "python",
+    "difficulty": "intro",
+    "scores_demonstrated": "diff_constraint"
+  }
+}

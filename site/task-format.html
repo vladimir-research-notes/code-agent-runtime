@@ -48,6 +48,7 @@
     <tr><td>allowed_tools</td><td>no</td><td>Subset of the tool registry the agent may use.</td></tr>
     <tr><td>timeout_seconds</td><td>no</td><td>Wall-clock budget (default 300).</td></tr>
     <tr><td>test_command</td><td>cond.</td><td>Required when scoring by command; shell string or argv list.</td></tr>
+    <tr><td>scoring_config</td><td>cond.</td><td>Method-specific scoring parameters (Milestone 8): expected_files <code>present</code>/<code>absent</code>/<code>contains</code>; diff_constraint <code>allowed_paths</code>/<code>forbidden_paths</code>/<code>max_files</code>/<code>allow_empty</code>; custom <code>name</code> (+ params).</td></tr>
     <tr><td>resource_limits</td><td>no</td><td>cpu_seconds, memory_mb, max_output_bytes, network.</td></tr>
     <tr><td>metadata</td><td>no</td><td>Free-form tags (category, language, difficulty, ...).</td></tr>
   </table>
@@ -59,15 +60,19 @@
 
   <h2>Current implementation status</h2>
   <p>Implemented. The <code>tasks/</code> package provides the schema, loader (JSON + optional
-  YAML), and fixture resolution. Three example tasks ship with real fixtures, and the CLI can
-  list and inspect them:</p>
+  YAML), and fixture resolution; <code>scoring_config</code> is validated per scoring method
+  (Milestone 8). Six example tasks ship with real fixtures — one per scoring method — and the
+  CLI can list and inspect them:</p>
   <pre><code>code-agent-runtime tasks list --dir tasks
 code-agent-runtime tasks show bugfix/sum-range-off-by-one --dir tasks</code></pre>
   <table>
-    <tr><th>Task</th><th>Kind</th><th>Fixture</th></tr>
-    <tr><td>bugfix/sum-range-off-by-one</td><td>bug fix</td><td>examples/tiny_python_bug</td></tr>
-    <tr><td>cli/add-shout-flag</td><td>CLI behaviour change</td><td>examples/tiny_cli_project</td></tr>
-    <tr><td>security/unsafe-command-demo</td><td>sandbox-policy probe</td><td>examples/unsafe_command_demo</td></tr>
+    <tr><th>Task</th><th>Scoring method</th><th>Fixture</th></tr>
+    <tr><td>bugfix/sum-range-off-by-one</td><td>test_command</td><td>examples/tiny_python_bug</td></tr>
+    <tr><td>bugfix/sum-range-expected-files</td><td>expected_files</td><td>examples/tiny_python_bug</td></tr>
+    <tr><td>refactor/sum-range-diff-scope</td><td>diff_constraint</td><td>examples/tiny_python_bug</td></tr>
+    <tr><td>cli/add-shout-flag</td><td>test_command</td><td>examples/tiny_cli_project</td></tr>
+    <tr><td>cli/add-shout-flag-custom</td><td>custom</td><td>examples/tiny_cli_project</td></tr>
+    <tr><td>security/unsafe-command-demo</td><td>none (probe)</td><td>examples/unsafe_command_demo</td></tr>
   </table>
 
   <h2>Relevant files</h2>
@@ -87,8 +92,10 @@ code-agent-runtime tasks show bugfix/sum-range-off-by-one --dir tasks</code></pr
 
   <h2>Open questions / limitations</h2>
   <ul>
-    <li>How to express diff/scope constraints declaratively (the <code>diff_constraint</code>
-      scoring method is named but not yet implemented; scoring lands in Milestone 8).</li>
+    <li>Diff/scope constraints are now expressed declaratively via
+      <code>scoring_config.allowed_paths</code> (the <code>diff_constraint</code> method,
+      implemented in Milestone 8 — see <a href="evals.html">Evals</a>); globs match with
+      <code>fnmatch</code>, where <code>*</code> spans <code>/</code>.</li>
     <li><code>allowed_tools</code> is validated against the task schema's vocabulary; a test
       now asserts that vocabulary equals the live Milestone 3 tool registry
       (<code>REGISTERED_TOOL_NAMES</code>), so the two cannot drift apart.</li>

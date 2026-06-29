@@ -1,7 +1,8 @@
 # Evaluation methodology
 
-> **Status:** skeleton (Milestone 0). Describes the intended methodology. No
-> evaluations have been run yet; see [`RESULTS.md`](RESULTS.md).
+> **Status:** Milestone 8. Scoring, the suite runner, and result reports are
+> implemented; the deterministic baseline has been run — see
+> [`RESULTS.md`](RESULTS.md). Regression/flakiness analysis is Milestone 9.
 
 ## Goal
 
@@ -19,12 +20,13 @@ and **honest about uncertainty** — not to produce a leaderboard.
 
 | Signal | Source | Notes |
 | --- | --- | --- |
-| Task success | test command exit / file checks | Primary pass/fail. |
-| Diff conformance | git diff vs. constraints | Did it stay in scope? |
-| Tool-call count | trace | Effort / efficiency proxy. |
-| Command count | trace | Shell activity. |
-| Runtime | wall-clock | Bounded by per-task timeout. |
-| Failure reason | trace + scorer | Why a run failed, not just that it did. |
+| Task success | `test_command` / `expected_files` scorer | Primary pass/fail. |
+| Diff conformance | `diff_constraint` scorer (git diff vs. `allowed_paths`) | Did it stay in scope? |
+| Combined checks | `custom` scorer (e.g. tests pass AND in scope) | Compose signals into one verdict. |
+| Tool-call count | run record | Effort / efficiency proxy. |
+| Command count | run record | Shell activity. |
+| Runtime | wall-clock (suite layer) | Bounded by per-task timeout; machine-dependent. |
+| Failure reason | scorer detail / error | Why a run failed, not just that it did. |
 
 ## Baselines
 
@@ -45,10 +47,27 @@ and **honest about uncertainty** — not to produce a leaderboard.
 - Fixture realism: tiny repos may not reflect real codebases.
 - Scorer gaps: a passing test command does not guarantee a correct change.
 
+## Scoring methods
+
+- `test_command` — pass iff the test command exits 0 (a timeout is a failure).
+- `expected_files` — pass iff named files exist / are absent / contain text.
+- `diff_constraint` — pass iff the change stays within `allowed_paths` (and within
+  `max_files`, touching no `forbidden_paths`, non-empty unless `allow_empty`). A
+  *constraint*, not a correctness check.
+- `custom` — a named scorer from an in-code registry; the shipped
+  `tests_pass_and_diff_scope` combines a correctness check with a scope check.
+- `none` — judged by inspection (e.g. the sandbox demo); reported `not_scored`.
+
+Build artifacts (`__pycache__`, `*.pyc`) are ignored in diff-scope analysis.
+
 ## Current implementation status
 
-- [ ] Scoring, suite runner, and result reports are not implemented yet.
+- [x] Scoring (`scoring/`), suite runner (`run_suite`), and Markdown/HTML reports
+      (`reports/`) are implemented and exercised by the baseline in `RESULTS.md`.
+- [ ] Regression comparison and flakiness analysis — Milestone 9.
 
 ## Relevant files
 
+- `src/code_agent_runtime/scoring/`, `src/code_agent_runtime/reports/`
+- `scripts/02_generate_report.py`
 - `docs/RESEARCH_QUESTIONS.md`, `docs/RESULTS.md`, `docs/PLAN.md`

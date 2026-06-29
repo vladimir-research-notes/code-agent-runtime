@@ -55,6 +55,11 @@ node_modules/
 # example traces, if ever committed, should live elsewhere and be force-added.
 /traces/
 
+# Eval result/report artifacts (the `eval run --out/--report` and the report
+# generator script write here). The canonical, committed result table lives in
+# docs/RESULTS.md; these are reproducible blobs, not committed.
+/results/
+
 # OS / editor cruft
 .DS_Store
 *.swp

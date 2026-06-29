@@ -84,6 +84,7 @@ _KNOWN_KEYS: frozenset[str] = frozenset(
         "timeout_seconds",
         "scoring_method",
         "test_command",
+        "scoring_config",
         "resource_limits",
         "metadata",
     }
@@ -91,6 +92,15 @@ _KNOWN_KEYS: frozenset[str] = frozenset(
 
 _KNOWN_LIMIT_KEYS: frozenset[str] = frozenset(
     {"cpu_seconds", "memory_mb", "max_output_bytes", "network"}
+)
+
+#: Recognised ``scoring_config`` keys per scoring method (Milestone 8). The
+#: ``expected_files`` and ``diff_constraint`` methods are validated strictly so a
+#: typo in an expectation is an authoring-time error; ``custom`` only requires a
+#: scorer ``name`` and may carry arbitrary extra params for that scorer.
+_EXPECTED_FILES_KEYS: frozenset[str] = frozenset({"present", "absent", "contains"})
+_DIFF_CONSTRAINT_KEYS: frozenset[str] = frozenset(
+    {"allowed_paths", "forbidden_paths", "max_files", "allow_empty"}
 )
 
 
@@ -147,6 +157,10 @@ class Task:
     #: Normalised argv for the scoring/test command, or ``None`` when the task is
     #: not scored by a command. A string in the source is shell-split into argv.
     test_command: tuple[str, ...] | None = None
+    #: Method-specific scoring parameters (Milestone 8): the ``expected_files``
+    #: expectations, the ``diff_constraint`` file scope, or the ``custom`` scorer
+    #: ``name`` (plus its params). Empty for ``test_command`` / ``none``.
+    scoring_config: Mapping[str, Any] = field(default_factory=dict)
     resource_limits: ResourceLimits = field(default_factory=ResourceLimits)
     metadata: Mapping[str, Any] = field(default_factory=dict)
     #: Absolute path of the file this task was loaded from, set by the loader.
@@ -172,6 +186,7 @@ class Task:
             "timeout_seconds": self.timeout_seconds,
             "scoring_method": self.scoring_method,
             "test_command": list(self.test_command) if self.test_command is not None else None,
+            "scoring_config": dict(self.scoring_config),
             "resource_limits": self.resource_limits.to_dict(),
             "metadata": dict(self.metadata),
             "source_path": self.source_path,
@@ -251,6 +266,118 @@ def _normalise_test_command(problems: list[str], raw: Any) -> tuple[str, ...] | 
         return tuple(raw)
     problems.append(f"'test_command' must be a string or list of strings, got {type(raw).__name__}")
     return None
+
+
+def _check_str_list(problems: list[str], raw: Any, field_name: str) -> list[str]:
+    """Validate ``raw`` is a list of non-empty strings; return it (or empty)."""
+    if not isinstance(raw, (list, tuple)):
+        problems.append(f"'{field_name}' must be a list of strings, got {type(raw).__name__}")
+        return []
+    out: list[str] = []
+    for item in raw:
+        if not isinstance(item, str) or not item.strip():
+            problems.append(f"'{field_name}' must contain only non-empty strings")
+            continue
+        out.append(item)
+    return out
+
+
+def _validate_scoring_config(
+    problems: list[str], raw: Any, scoring_method: str | None
+) -> dict[str, Any]:
+    """Validate ``scoring_config`` against ``scoring_method`` (Milestone 8).
+
+    ``test_command`` and ``none`` accept (and ignore) any mapping. ``expected_files``
+    and ``diff_constraint`` are checked strictly against their known keys so a
+    mistyped expectation fails at authoring time. ``custom`` requires a scorer
+    ``name`` and may carry extra params the named scorer interprets.
+    """
+    if raw is None:
+        raw = {}
+    if not isinstance(raw, Mapping):
+        problems.append(f"'scoring_config' must be a mapping, got {type(raw).__name__}")
+        return {}
+    config = dict(raw)
+
+    if scoring_method == "expected_files":
+        unknown = set(config) - _EXPECTED_FILES_KEYS
+        if unknown:
+            problems.append(
+                f"'scoring_config' for expected_files has unknown key(s): "
+                f"{', '.join(sorted(unknown))} (allowed: {', '.join(sorted(_EXPECTED_FILES_KEYS))})"
+            )
+        if not any(k in config for k in _EXPECTED_FILES_KEYS):
+            problems.append(
+                "scoring_method 'expected_files' requires a 'scoring_config' with at "
+                "least one of: present, absent, contains"
+            )
+        for key in ("present", "absent"):
+            if key in config:
+                _check_str_list(problems, config[key], f"scoring_config.{key}")
+        if "contains" in config:
+            _validate_contains(problems, config["contains"])
+    elif scoring_method == "diff_constraint":
+        unknown = set(config) - _DIFF_CONSTRAINT_KEYS
+        if unknown:
+            problems.append(
+                f"'scoring_config' for diff_constraint has unknown key(s): "
+                f"{', '.join(sorted(unknown))} (allowed: {', '.join(sorted(_DIFF_CONSTRAINT_KEYS))})"
+            )
+        allowed_paths = config.get("allowed_paths")
+        if not allowed_paths:
+            problems.append(
+                "scoring_method 'diff_constraint' requires a non-empty "
+                "'scoring_config.allowed_paths'"
+            )
+        else:
+            _check_str_list(problems, allowed_paths, "scoring_config.allowed_paths")
+        if "forbidden_paths" in config:
+            _check_str_list(problems, config["forbidden_paths"], "scoring_config.forbidden_paths")
+        if "max_files" in config:
+            value = config["max_files"]
+            if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+                problems.append("'scoring_config.max_files' must be a positive integer")
+        if "allow_empty" in config and not isinstance(config["allow_empty"], bool):
+            problems.append("'scoring_config.allow_empty' must be a boolean")
+    elif scoring_method == "custom":
+        name = config.get("name")
+        if not isinstance(name, str) or not name.strip():
+            problems.append(
+                "scoring_method 'custom' requires a 'scoring_config.name' naming a "
+                "registered custom scorer"
+            )
+    # test_command / none: scoring_config is accepted but unused.
+    return config
+
+
+def _validate_contains(problems: list[str], raw: Any) -> None:
+    """Validate the ``expected_files.contains`` list of {path, text} checks."""
+    if not isinstance(raw, (list, tuple)):
+        problems.append(
+            f"'scoring_config.contains' must be a list of {{path, text}} objects, "
+            f"got {type(raw).__name__}"
+        )
+        return
+    for i, item in enumerate(raw):
+        if not isinstance(item, Mapping):
+            problems.append(f"'scoring_config.contains[{i}]' must be a mapping with 'path' and 'text'")
+            continue
+        path = item.get("path")
+        if not isinstance(path, str) or not path.strip():
+            problems.append(f"'scoring_config.contains[{i}].path' must be a non-empty string")
+        text = item.get("text")
+        if isinstance(text, str):
+            if not text:
+                problems.append(f"'scoring_config.contains[{i}].text' must not be empty")
+        elif isinstance(text, (list, tuple)):
+            if not text or not all(isinstance(t, str) and t for t in text):
+                problems.append(
+                    f"'scoring_config.contains[{i}].text' list must contain only non-empty strings"
+                )
+        else:
+            problems.append(
+                f"'scoring_config.contains[{i}].text' must be a string or list of strings"
+            )
 
 
 def validate_task_dict(data: Any, *, source: str | None = None) -> Task:
@@ -340,6 +467,9 @@ def validate_task_dict(data: Any, *, source: str | None = None) -> Task:
     if scoring_method == "test_command" and test_command is None:
         problems.append("scoring_method 'test_command' requires a non-empty 'test_command'")
 
+    # scoring_config (method-specific parameters) ---------------------------
+    scoring_config = _validate_scoring_config(problems, data.get("scoring_config"), scoring_method)
+
     # resource_limits -------------------------------------------------------
     resource_limits = _validate_resource_limits(problems, data.get("resource_limits", {}))
 
@@ -362,6 +492,7 @@ def validate_task_dict(data: Any, *, source: str | None = None) -> Task:
         allowed_tools=allowed_tools,
         timeout_seconds=timeout_seconds,
         test_command=test_command,
+        scoring_config=scoring_config,
         resource_limits=resource_limits,
         metadata=dict(metadata),
         source_path=source,

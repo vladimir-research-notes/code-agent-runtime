@@ -26,7 +26,7 @@
 <main>
   <h1>Roadmap</h1>
   <p class="lede">Built milestone by milestone; committed locally after each coherent step.</p>
-  <p><span class="status scaffold">status: Milestone 7 complete</span></p>
+  <p><span class="status done">status: Milestone 8 complete</span></p>
 
   <h2>Brief explanation</h2>
   <p>The platform is built in small, verifiable milestones. Each milestone runs its tests,
@@ -43,7 +43,7 @@
     <tr><td>5</td><td>Trace recorder</td><td>done</td></tr>
     <tr><td>6</td><td>Replay and debugging tools</td><td>done</td></tr>
     <tr><td>7</td><td>Permission policies and sandbox controls</td><td>done</td></tr>
-    <tr><td>8</td><td>Scoring and evaluation reports</td><td>planned</td></tr>
+    <tr><td>8</td><td>Scoring and evaluation reports</td><td>done</td></tr>
     <tr><td>9</td><td>Regression comparison and flakiness analysis</td><td>planned</td></tr>
     <tr><td>10</td><td>Optional cost-controlled LLM adapter</td><td>planned</td></tr>
     <tr><td>11</td><td>Claude Code trace importer</td><td>planned</td></tr>
@@ -53,18 +53,21 @@
   </table>
 
   <h2>Current implementation status</h2>
-  <p>Milestones 0–7 are complete: package scaffold, CLI, docs skeleton, this website,
+  <p>Milestones 0–8 are complete: package scaffold, CLI, docs skeleton, this website,
   packaging, CPU-only tests, an environment check and repository hygiene scanner, a versioned
   task format (schema, loader, example tasks, and <code>tasks</code> CLI), a tool registry
   with seven structured core tools (and a <code>tools</code> CLI), a local runtime state
   machine that drives mock and scripted agents over a task (workspace preparation, tool
-  gating, test execution, minimal scoring, and a <code>run</code> CLI), structured run
+  gating, test execution, and a <code>run</code> CLI), structured run
   tracing (a JSON trace schema, an opt-in recorder driven by the run loop, and
   <code>run --trace</code>), trace replay/debugging tooling (reconstruct a run from its
   trace and render a text summary or Markdown report, via <code>trace show</code> /
-  <code>trace report</code>), and permission policies and sandbox controls (allowed/denied
+  <code>trace report</code>), permission policies and sandbox controls (allowed/denied
   paths, command allow/denylist, network flag, runtime/output caps, and a secret scanner,
-  enforced by default with an unsafe <code>probe</code> agent demonstrating blocked-vs-allowed).</p>
+  enforced by default with an unsafe <code>probe</code> agent demonstrating blocked-vs-allowed),
+  and scoring and evaluation reports (all four scoring methods plus a custom-scorer registry,
+  a suite runner producing a JSON result, Markdown/HTML reports, and an <code>eval</code> CLI —
+  with a real baseline in <a href="results.html">Results</a>).</p>
 
   <h2>Relevant files</h2>
   <ul class="files">
@@ -73,10 +76,11 @@
     <li>docs/commits/, docs/review_notes/</li>
     <li>src/code_agent_runtime/agents/, src/code_agent_runtime/runtime/</li>
     <li>src/code_agent_runtime/traces/, src/code_agent_runtime/sandbox/</li>
+    <li>src/code_agent_runtime/scoring/, src/code_agent_runtime/reports/</li>
   </ul>
 
   <h2>Current test/result status</h2>
-  <p>All CPU-only tests pass. Next: Milestone 8 — Scoring and evaluation reports.</p>
+  <p>All CPU-only tests pass. Next: Milestone 9 — Regression comparison and flakiness analysis.</p>
 
   <h2>Open questions / limitations</h2>
   <p>The plan may evolve as real subsystems land; this table is updated at every milestone.</p>

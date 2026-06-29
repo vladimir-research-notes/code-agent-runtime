@@ -8,20 +8,23 @@ infrastructure *around* coding agents — task setup, tools, permissions,
 execution, tracing, replay, scoring, regression comparison, and reports. It is
 **not** a tutorial, a clone of a commercial tool, or a benchmark leaderboard.
 
-> Status: **Milestone 7 — Permission policies and sandbox controls.** This
+> Status: **Milestone 8 — Scoring and evaluation reports.** This
 > repository is being built milestone by milestone (see [`docs/PLAN.md`](docs/PLAN.md)).
 > The package, docs, website, packaging, and tests exist, plus an environment check, a
 > repository hygiene scanner, a versioned task format (schema, loader, example
 > tasks, `tasks` CLI), a tool registry with seven structured core tools (`tools`
 > CLI), a runtime loop that drives mock and scripted agents over a task (workspace
-> preparation, tool gating, test execution, minimal scoring, `run` CLI),
+> preparation, tool gating, test execution, `run` CLI),
 > structured run tracing (a JSON trace schema, an opt-in recorder driven by the
 > run loop, and `run --trace`), trace replay/debugging tooling (reconstruct a
 > run from its trace and render a text summary or Markdown report, via
-> `trace show` / `trace report`), and permission policies / sandbox controls (a
+> `trace show` / `trace report`), permission policies / sandbox controls (a
 > `SandboxPolicy` enforced on every agent tool call by default, with output
-> redaction, plus an unsafe `probe` agent). Full scoring, reports, and model
-> adapters are not yet implemented.
+> redaction, plus an unsafe `probe` agent), and scoring + evaluation reports (all
+> four scoring methods — `test_command`, `expected_files`, `diff_constraint`,
+> `custom` — a suite runner producing a JSON result, Markdown/HTML reports, and an
+> `eval` CLI; a real baseline is in [`docs/RESULTS.md`](docs/RESULTS.md)).
+> Regression comparison and model adapters are not yet implemented.
 
 ## Design constraints
 
@@ -93,9 +96,13 @@ PYTHONPATH=src python3 -m code_agent_runtime tasks list --dir tasks
 PYTHONPATH=src python3 -m code_agent_runtime tasks show bugfix/sum-range-off-by-one --dir tasks
 ```
 
-The three shipped tasks (`bugfix/sum-range-off-by-one`, `cli/add-shout-flag`,
-`security/unsafe-command-demo`) point at fixtures under `examples/`. See
-[`tasks/README.md`](tasks/README.md) for the full field reference.
+Six shipped tasks point at fixtures under `examples/` — one per scoring method:
+`bugfix/sum-range-off-by-one` and `cli/add-shout-flag` (`test_command`),
+`bugfix/sum-range-expected-files` (`expected_files`),
+`refactor/sum-range-diff-scope` (`diff_constraint`),
+`cli/add-shout-flag-custom` (`custom`), and `security/unsafe-command-demo`
+(`none`, the sandbox probe). See [`tasks/README.md`](tasks/README.md) for the
+full field reference.
 
 ### Running a task (Milestone 4)
 
@@ -191,6 +198,41 @@ network. They are inspectors: they exit non-zero only on a missing or malformed
 trace, not on a failed run. They render whatever the trace stored, which is
 redacted at record time when the sandbox was enabled (Milestone 7).
 
+### Scoring and evaluation reports (Milestone 8)
+
+The runtime scores each run by delegating to a `scoring/` layer that implements
+all four methods named by the task schema — `test_command` (tests exit 0),
+`expected_files` (files exist / are absent / contain text), `diff_constraint`
+(the change stays within `allowed_paths`), and `custom` (a named scorer from an
+in-code registry; the shipped `tests_pass_and_diff_scope` combines correctness
+with scope) — plus `none` (judged by inspection). Scoring is a pure function of
+the evidence a run produced, so verdicts are reproducible.
+
+`eval run` runs a task×agent matrix, scores it, and emits a JSON result and a
+Markdown/HTML report (one row per run: task id, agent, pass/fail, runtime, tool
+calls, commands, failure reason):
+
+```bash
+# Run the whole suite and print a Markdown report:
+PYTHONPATH=src python3 -m code_agent_runtime eval run --dir tasks
+
+# Machine-readable result, or write a result file + an HTML report:
+PYTHONPATH=src python3 -m code_agent_runtime eval run --dir tasks --json
+PYTHONPATH=src python3 -m code_agent_runtime eval run --dir tasks --out results/raw/eval.json --report results/reports/eval.html
+
+# Re-render a saved result file without re-running anything:
+PYTHONPATH=src python3 -m code_agent_runtime eval report results/raw/eval.json
+
+# One-shot: run the default suite and write results/ artifacts:
+python3 scripts/02_generate_report.py
+```
+
+The deterministic baseline (scripted passes every solvable task; the null mock
+agent fails the ones requiring a change) is committed in
+[`docs/RESULTS.md`](docs/RESULTS.md). A passing test command is **evidence, not
+proof**, of correctness, and `diff_constraint` scores scope, not correctness —
+see the caveats there. Generated artifacts under `results/` are gitignored.
+
 Optionally install the package and dev extras in a virtual environment:
 
 ```bash
@@ -212,7 +254,7 @@ environment caveats.
 | [`docs/METHODOLOGY.md`](docs/METHODOLOGY.md) | How agents are evaluated. |
 | [`docs/SECURITY_MODEL.md`](docs/SECURITY_MODEL.md) | Threat model and sandbox limits. |
 | [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md) | What is and isn't proven. |
-| [`docs/RESULTS.md`](docs/RESULTS.md) | Result tables (empty until evals run). |
+| [`docs/RESULTS.md`](docs/RESULTS.md) | Real baseline result table (Milestone 8). |
 | [`docs/REPRODUCIBILITY.md`](docs/REPRODUCIBILITY.md) | How to reproduce runs. |
 | [`docs/RESEARCH_QUESTIONS.md`](docs/RESEARCH_QUESTIONS.md) | Questions this platform probes. |
 

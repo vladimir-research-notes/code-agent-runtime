@@ -1,10 +1,11 @@
 # Architecture
 
-> **Status:** Milestone 7. Tasks, tools, the runtime loop, structured run
-> tracing, trace replay/summarise tooling, and permission policies / sandbox
-> controls are implemented; full scoring, reports, and adapters are filled in
-> milestone by milestone (see [`PLAN.md`](PLAN.md)). The component boundaries
-> below are the design target.
+> **Status:** Milestone 8. Tasks, tools, the runtime loop, structured run
+> tracing, trace replay/summarise tooling, permission policies / sandbox
+> controls, and scoring + evaluation reports are implemented; regression
+> comparison and optional model adapters are filled in milestone by milestone
+> (see [`PLAN.md`](PLAN.md)). The component boundaries below are the design
+> target.
 
 ## Overview
 
@@ -28,7 +29,7 @@ task ──▶ workspace ──▶ agent loop ──▶ tools ──▶ tests �
 | Tools | `tools/` | Structured file, patch, shell, git, test, search tools. |
 | Sandbox | `sandbox/` | Permission policy, secret scanning, runners. |
 | Traces | `traces/` | Trace schema, recorder, replay, summarization. |
-| Scoring | `scoring/` | Test/diff/file scorers and regression comparison. |
+| Scoring | `scoring/` | Test/file/diff/custom scorers and the suite runner (regression in M9). |
 | Reports | `reports/` | Markdown and HTML result reports. |
 
 ## Data flow
@@ -40,8 +41,13 @@ task ──▶ workspace ──▶ agent loop ──▶ tools ──▶ tests �
 4. **Execute tool** — the runtime gates the call against `allowed_tools` and the
    sandbox policy (Milestone 7), dispatches it, then redacts the result's output.
 5. **Run tests** — execute the task's test command in the workspace.
-6. **Score** — combine test results, diff constraints, and file checks.
-7. **Report** — emit a trace artifact and a human-readable report.
+6. **Score** — the loop hands the evidence (test result, captured diff, live
+   workspace) to `scoring.score_run`, which dispatches on the task's
+   `scoring_method` (`test_command`, `expected_files`, `diff_constraint`,
+   `custom`, `none`) and returns a verdict, scored before the workspace is
+   cleaned up.
+7. **Report** — emit a trace artifact and, for a suite of runs, a Markdown/HTML
+   result table (`reports/`) over the `SuiteResult` from `scoring.run_suite`.
 
 ## Design principles
 
@@ -79,7 +85,12 @@ task ──▶ workspace ──▶ agent loop ──▶ tools ──▶ tests �
       credential-shaped output before it enters a trace; an unsafe `probe` agent
       demonstrates blocked-vs-allowed (Milestone 7). Not a jail — command matching
       is by program name, network enforcement is heuristic, no process isolation.
-- [ ] Full scoring, reports, adapters — pending later milestones.
+- [x] Scoring and evaluation reports — a `scoring/` layer with all four methods
+      (`test_command`, `expected_files`, `diff_constraint`, `custom` + registry),
+      a suite runner producing a JSON `SuiteResult`, `reports/` for Markdown/HTML
+      tables, an optional `scoring_config` task field, and an `eval run`/`eval
+      report` CLI (Milestone 8). Verdicts are evidence-based and reproducible.
+- [ ] Regression comparison and optional model adapters — pending later milestones.
 
 ## Relevant files
 
@@ -90,7 +101,10 @@ task ──▶ workspace ──▶ agent loop ──▶ tools ──▶ tests �
 - `src/code_agent_runtime/runtime/` (state, execution, agent_loop, report)
 - `src/code_agent_runtime/traces/` (schema, recorder, store, replay, summarize)
 - `src/code_agent_runtime/sandbox/` (policy, permissions, secret_scanner)
+- `src/code_agent_runtime/scoring/` (scorer, test/expected_files/diff/custom, suite)
+- `src/code_agent_runtime/reports/` (markdown, html)
 - `tasks/`, `examples/` (example task definitions and fixtures)
+- `scripts/02_generate_report.py` (run the default suite, write reports)
 - `docs/PLAN.md` (target layout and milestones)
 
 ## Open questions

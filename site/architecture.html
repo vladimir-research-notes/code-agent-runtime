@@ -26,7 +26,7 @@
 <main>
   <h1>Architecture</h1>
   <p class="lede">How a versioned task and an agent become a scored, replayable trace.</p>
-  <p><span class="status scaffold">status: Milestone 7 — tasks, tools, the runtime loop, structured tracing, trace replay, and sandbox controls implemented; full scoring pending</span></p>
+  <p><span class="status done">status: Milestone 8 — tasks, tools, the runtime loop, structured tracing, trace replay, sandbox controls, and scoring + reports implemented; regression comparison pending</span></p>
 
   <h2>Brief explanation</h2>
   <p>The runtime is an explicit pipeline. Each stage has a clear input and output so that
@@ -43,7 +43,7 @@
     <tr><td>Tools</td><td>tools/</td><td>Structured file, patch, shell, git, test, search tools.</td></tr>
     <tr><td>Sandbox</td><td>sandbox/</td><td>Permission policy, secret scanning, runners.</td></tr>
     <tr><td>Traces</td><td>traces/</td><td>Trace schema, recorder, replay, summarization.</td></tr>
-    <tr><td>Scoring</td><td>scoring/</td><td>Test/diff/file scorers, regression comparison.</td></tr>
+    <tr><td>Scoring</td><td>scoring/</td><td>Test/file/diff/custom scorers and the suite runner (regression in M9).</td></tr>
     <tr><td>Reports</td><td>reports/</td><td>Markdown and HTML result reports.</td></tr>
   </table>
   <p>Design principles: deterministic-first, everything-is-traced, separation of policy and
@@ -87,12 +87,12 @@
     <tr><td>agent step</td><td><code>agent.propose(Observation)</code> returns one <code>AgentAction</code></td></tr>
     <tr><td>execute tool</td><td>gate against <code>allowed_tools</code>, then dispatch via the registry</td></tr>
     <tr><td>run tests</td><td>run the task's <code>test_command</code> through the <code>run_tests</code> tool</td></tr>
-    <tr><td>score</td><td><code>test_command</code> → pass/fail; <code>none</code> → not scored</td></tr>
+    <tr><td>score</td><td>delegate to <code>scoring.score_run</code> (see Scoring below)</td></tr>
     <tr><td>report</td><td>build the <code>RunResult</code>; render text or JSON</td></tr>
   </table>
   <p>Containment is workspace confinement, <code>allowed_tools</code> capability gating, and the
-  Milestone 7 sandbox policy (see below) — but no process/namespace isolation. Scoring is
-  intentionally minimal; the full scorer, suite runner, and reports are Milestone 8.</p>
+  Milestone 7 sandbox policy (see below) — but no process/namespace isolation. The loop scores by
+  delegating to the Milestone 8 scoring layer, before the workspace is cleaned up.</p>
 
   <h2>Trace recorder (Milestone 5)</h2>
   <p>A run can be recorded as a structured, JSON-serialisable <code>Trace</code> with two
@@ -139,6 +139,27 @@
   adds observability — it is <strong>not</strong> a jail (program-name command matching, heuristic
   network denylist, no process/namespace isolation). See <a href="sandboxing.html">Sandboxing</a>.</p>
 
+  <h2>Scoring &amp; reports (Milestone 8)</h2>
+  <p>The <code>scoring/</code> layer turns a finished run into a <strong>verdict</strong> and is a
+  pure function of the evidence the run produced (the test result, the captured diff, the live
+  workspace) — so a verdict is reproducible and unit-testable without re-running anything. The loop
+  calls <code>score_run</code>, which dispatches on the task's <code>scoring_method</code>:</p>
+  <table>
+    <tr><th>Method</th><th>Passes when…</th></tr>
+    <tr><td><code>test_command</code></td><td>the test command exits 0 (a timeout fails).</td></tr>
+    <tr><td><code>expected_files</code></td><td>named files exist / are absent / contain text.</td></tr>
+    <tr><td><code>diff_constraint</code></td><td>the change stays within <code>allowed_paths</code> (and <code>max_files</code>, no forbidden paths, non-empty). Scope, not correctness.</td></tr>
+    <tr><td><code>custom</code></td><td>a named scorer from an in-code registry says so (e.g. <code>tests_pass_and_diff_scope</code>).</td></tr>
+    <tr><td><code>none</code></td><td>judged by inspection → <code>not_scored</code>.</td></tr>
+  </table>
+  <p><code>run_suite</code> runs a task×agent matrix and returns a JSON-serialisable
+  <code>SuiteResult</code> of per-run <code>EvalRecord</code>s (task id, agent, pass/fail, runtime,
+  tool/command counts, failure reason); <code>reports/</code> renders it to Markdown or standalone
+  HTML. Wall-clock timing lives in the suite layer so <code>RunResult</code> stays deterministic.
+  The whole chain runs offline via <code>code-agent-runtime eval run</code> /
+  <code>scripts/02_generate_report.py</code>. See <a href="evals.html">Evals</a> and
+  <a href="results.html">Results</a>.</p>
+
   <h2>Current implementation status</h2>
   <ul>
     <li>Package scaffold and CLI — done.</li>
@@ -148,7 +169,8 @@
     <li>Structured run tracing with an opt-in recorder and <code>run --trace</code> (Milestone 5) — done.</li>
     <li>Trace replay/summarise with <code>trace show</code> / <code>trace report</code> (Milestone 6) — done.</li>
     <li>Permission policies and sandbox controls, enforced by default, with secret redaction (Milestone 7) — done.</li>
-    <li>Full scoring, reports, adapters — pending.</li>
+    <li>Scoring (four methods + custom registry), suite runner, Markdown/HTML reports, and an <code>eval</code> CLI (Milestone 8) — done.</li>
+    <li>Regression comparison, model adapters — pending.</li>
   </ul>
 
   <h2>Relevant files</h2>
@@ -161,9 +183,11 @@
     <li>src/code_agent_runtime/runtime/ (state, execution, agent_loop, report)</li>
     <li>src/code_agent_runtime/traces/ (schema, recorder, store, replay, summarize)</li>
     <li>src/code_agent_runtime/sandbox/ (policy, permissions, secret_scanner)</li>
+    <li>src/code_agent_runtime/scoring/ (scorer, test/expected_files/diff/custom, suite)</li>
+    <li>src/code_agent_runtime/reports/ (markdown, html)</li>
     <li>src/code_agent_runtime/agents/probes.py (the unsafe probe agent)</li>
-    <li>tests/test_tools.py, tests/test_runtime.py, tests/test_traces.py, tests/test_replay.py, tests/test_sandbox.py</li>
-    <li>docs/PLAN.md</li>
+    <li>tests/test_tools.py, test_runtime.py, test_traces.py, test_replay.py, test_sandbox.py, test_scoring.py, test_eval.py</li>
+    <li>scripts/02_generate_report.py, docs/PLAN.md</li>
   </ul>
 
   <h2>Current test/result status</h2>
@@ -180,8 +204,9 @@
       <strong>sandbox policy</strong> (path/command/network gating, runtime/output caps, secret
       redaction) — but <strong>not</strong> process/namespace isolation. Command matching is by
       program name and network enforcement is heuristic; a containerized runner is a future option.</li>
-    <li>Scoring covers <code>test_command</code> and <code>none</code> only; the other methods
-      and the suite/regression machinery are Milestone 8.</li>
+    <li>Scoring covers all four methods plus a custom registry and a suite runner (Milestone 8);
+      regression comparison across two result files is Milestone 9. A passing test command is
+      evidence, not proof, of correctness.</li>
     <li><code>apply_patch</code> applies exact-context unified diffs (no fuzzy matching, no
       binary patches, no rename detection).</li>
     <li>What is the minimal trace schema that still supports faithful replay?

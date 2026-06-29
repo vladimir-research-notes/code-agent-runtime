@@ -113,10 +113,16 @@ def _solution_add_shout(task: Task) -> list[ToolCall]:
 
 
 #: Task id → builder. A builder takes the validated task and returns the tool
-#: calls a scripted agent should replay to solve it.
+#: calls a scripted agent should replay to solve it. Because a builder works from
+#: the task's *fixture* (not its id), one builder serves every task over the same
+#: fixture — so the Milestone 8 scoring variants (same fix, different
+#: ``scoring_method``) reuse the original solutions rather than duplicating them.
 SOLUTIONS: dict[str, Callable[[Task], list[ToolCall]]] = {
     "bugfix/sum-range-off-by-one": _solution_sum_range,
+    "bugfix/sum-range-expected-files": _solution_sum_range,
+    "refactor/sum-range-diff-scope": _solution_sum_range,
     "cli/add-shout-flag": _solution_add_shout,
+    "cli/add-shout-flag-custom": _solution_add_shout,
 }
 
 

@@ -30,20 +30,45 @@ offending field.
 | `allowed_tools` | no | Subset of the tool registry the agent may use. |
 | `timeout_seconds` | no | Wall-clock budget (default 300). |
 | `test_command` | conditionally | Required when `scoring_method` is `test_command`; a shell string or argv list. |
+| `scoring_config` | conditionally | Method-specific scoring parameters (Milestone 8); see below. |
 | `resource_limits` | no | `cpu_seconds`, `memory_mb`, `max_output_bytes`, `network`. |
 | `metadata` | no | Free-form tags (category, language, difficulty, ...). |
 
+### `scoring_config` by method (Milestone 8)
+
+| `scoring_method` | `scoring_config` keys |
+| --- | --- |
+| `test_command` | _(none; uses `test_command`)_ |
+| `expected_files` | `present` (paths must exist), `absent` (must not exist), `contains` (list of `{path, text}`; `text` is a string or list of strings) — at least one required. |
+| `diff_constraint` | `allowed_paths` (required globs the change may touch), `forbidden_paths`, `max_files`, `allow_empty` (default `false`). |
+| `custom` | `name` (required; a scorer in the in-code registry) plus any params it reads, e.g. `allowed_paths` for `tests_pass_and_diff_scope`. |
+| `none` | _(not auto-scored)_ |
+
+Globs match with `fnmatch` against the workspace-relative path and its basename
+(`*` spans `/`). Diff-scope analysis ignores Python bytecode caches
+(`__pycache__`, `*.pyc`).
+
 ## Example tasks
 
-| Task | Kind | Fixture |
+| Task | Scoring method | Fixture |
 | --- | --- | --- |
-| `bugfix/sum-range-off-by-one` | bug fix | `examples/tiny_python_bug` |
-| `cli/add-shout-flag` | CLI behaviour change | `examples/tiny_cli_project` |
-| `security/unsafe-command-demo` | sandbox-policy probe | `examples/unsafe_command_demo` |
+| `bugfix/sum-range-off-by-one` | `test_command` | `examples/tiny_python_bug` |
+| `bugfix/sum-range-expected-files` | `expected_files` | `examples/tiny_python_bug` |
+| `refactor/sum-range-diff-scope` | `diff_constraint` | `examples/tiny_python_bug` |
+| `cli/add-shout-flag` | `test_command` | `examples/tiny_cli_project` |
+| `cli/add-shout-flag-custom` | `custom` | `examples/tiny_cli_project` |
+| `security/unsafe-command-demo` | `none` (sandbox probe) | `examples/unsafe_command_demo` |
 
 ## Inspecting tasks
 
 ```bash
 PYTHONPATH=src python3 -m code_agent_runtime tasks list --dir tasks
 PYTHONPATH=src python3 -m code_agent_runtime tasks show bugfix/sum-range-off-by-one --dir tasks
+```
+
+## Running and scoring tasks
+
+```bash
+PYTHONPATH=src python3 -m code_agent_runtime run bugfix/sum-range-off-by-one
+PYTHONPATH=src python3 -m code_agent_runtime eval run --dir tasks   # score the whole suite
 ```

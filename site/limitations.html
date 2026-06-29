@@ -26,14 +26,16 @@
 <main>
   <h1>Limitations &amp; non-goals</h1>
   <p class="lede">What is true today, and what this project deliberately is not.</p>
-  <p><span class="status scaffold">status: current as of Milestone 7</span></p>
+  <p><span class="status scaffold">status: current as of Milestone 8</span></p>
 
   <h2>Brief explanation</h2>
-  <p>As of Milestone 7 the repository has a package and CLI, docs, website, packaging, CPU-only
+  <p>As of Milestone 8 the repository has a package and CLI, docs, website, packaging, CPU-only
   tests, an environment check and hygiene scanner, a versioned task format, a tool registry with
   seven core tools, a runtime loop that drives mock/scripted agents over a task, structured run
-  tracing, trace replay/debugging tooling, and permission policies and sandbox controls (enforced
-  by default, with output redaction). Full scoring, reports, and model adapters are not built yet.</p>
+  tracing, trace replay/debugging tooling, permission policies and sandbox controls (enforced
+  by default, with output redaction), and scoring with evaluation reports (all four scoring
+  methods, a suite runner, and Markdown/HTML output). Regression comparison and model adapters
+  are not built yet.</p>
 
   <h2>Deeper technical explanation</h2>
   <h3>Known limitations</h3>
@@ -57,7 +59,16 @@
     <li><strong>Hygiene scope is tracked files.</strong> Only <code>git ls-files</code> content is
       scanned by default; bare <code>env</code>/<code>ENV</code> dirs are not treated as
       virtualenvs. Use <code>--include-untracked</code> to widen scope.</li>
-    <li><strong>No evaluations.</strong> <a href="results.html">Results</a> is intentionally empty.</li>
+    <li><strong>Scoring is evidence, not proof.</strong> A <code>test_command</code> pass means
+      the suite went green, bounded by its coverage — one shipped task even passes under the
+      null mock agent because its tests do not cover the new behaviour (see the
+      <a href="results.html">Results</a> caveats). <code>diff_constraint</code> scores
+      <em>scope</em>, not correctness, and ignores Python bytecode caches as build noise;
+      <code>expected_files</code> checks existence/substrings, not semantic equivalence.
+      Glob matching uses <code>fnmatch</code> (<code>*</code> spans <code>/</code>). Runtime is
+      wall-clock and machine-dependent; only verdicts and tool/command counts are deterministic.</li>
+    <li><strong>Small task set.</strong> Six tasks make results illustrative, not a benchmark;
+      regression/flakiness analysis arrives in Milestone 9.</li>
     <li><strong>No model integration.</strong> No LLM calls or Claude adapters yet.</li>
     <li><strong>Environment assumption.</strong> Tests assume <code>python3</code> 3.10+ with
       <code>pytest</code>; the <code>src/</code> layout plus <code>conftest.py</code> shim runs
@@ -80,7 +91,7 @@
 
   <h2>Current test/result status</h2>
   <p>CPU-only tests pass, including environment, hygiene-scanner, task, tool, runtime,
-  tracing, replay, and sandbox tests; nothing beyond Milestone 7 is claimed.</p>
+  tracing, replay, sandbox, scoring, and eval tests; nothing beyond Milestone 8 is claimed.</p>
 
   <h2>Open questions / limitations</h2>
   <p>Each milestone narrows these as real subsystems land and are tested.</p>
