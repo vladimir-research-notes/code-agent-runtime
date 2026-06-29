@@ -8,7 +8,7 @@ infrastructure *around* coding agents — task setup, tools, permissions,
 execution, tracing, replay, scoring, regression comparison, and reports. It is
 **not** a tutorial, a clone of a commercial tool, or a benchmark leaderboard.
 
-> Status: **Milestone 10 — Optional cost-controlled LLM adapter.** This
+> Status: **Milestone 11 — Claude Code trace importer.** This
 > repository is being built milestone by milestone (see [`docs/PLAN.md`](docs/PLAN.md)).
 > The package, docs, website, packaging, and tests exist, plus an environment check, a
 > repository hygiene scanner, a versioned task format (schema, loader, example
@@ -30,8 +30,13 @@ execution, tracing, replay, scoring, regression comparison, and reports. It is
 > cost-controlled LLM adapter (a model-backed `llm` agent behind a hard pre-call
 > budget guard, a response cache, transcript redaction, and a `--dry-run` cost
 > preview — offline by default via a deterministic fake client, opt-in to a real
-> Claude API run with `--allow-paid`).
-> The Claude Code trace importer is the next milestone.
+> Claude API run with `--allow-paid`), and a Claude Code trace importer (normalise
+> an external, Claude-Code-like run — before/after directories, a diff + command
+> log, an exported transcript, or a deterministic synthetic run — into this
+> runtime's trace format and score it with the **same** scorer, in *verify* mode by
+> re-running the task's real test command or in *trust* mode against the source's
+> declared evidence, via the `import` CLI).
+> The reproducible case study is the next milestone.
 
 ## Design constraints
 
@@ -306,6 +311,47 @@ an *unpriced* model is refused rather than guessed. The offline fake replays a
 fixed solution — it demonstrates the harness, **not** genuine model reasoning. No
 test makes a paid call.
 
+### Claude Code trace importer (Milestone 11)
+
+To compare a Claude-Code-like run against this runtime's agents, that external run
+has to be measured the same way. The importer normalises four input forms —
+before/after directories, a diff + command log, an exported transcript, or a
+deterministic synthetic run — into one import source, then converts it into this
+runtime's `Trace` and scores it with the **same** `score_run` as a native run.
+
+The key distinction is **trust vs. verify**. *Trust* mode scores the source's
+*declared* diff/test result (fast, but it believes the source). *Verify* mode
+reconstructs the workspace from the imported after-state over the task's fixture
+and re-runs the task's **real** test command — so the verdict is this runtime's
+measurement, not the source's claim.
+
+```bash
+# Synthesize a deterministic, offline synthetic Claude-Code-like run for a task:
+PYTHONPATH=src python3 -m code_agent_runtime import synthesize \
+    bugfix/sum-range-off-by-one --out results/raw/src.json
+
+# Summarise the import source (kind, actions, after-state, declared tests):
+PYTHONPATH=src python3 -m code_agent_runtime import show results/raw/src.json
+
+# Convert + score it into a replayable trace (auto: verify if it can, else trust):
+PYTHONPATH=src python3 -m code_agent_runtime import run results/raw/src.json --trace traces/
+PYTHONPATH=src python3 -m code_agent_runtime import run results/raw/src.json --mode trust
+
+# Build an import source from two directory snapshots (supports verification):
+PYTHONPATH=src python3 -m code_agent_runtime import before-after before/ after/ \
+    --task bugfix/sum-range-off-by-one --out results/raw/ba.json
+
+# Offline tour: synthesize -> trust -> verify -> a forged claim caught by verify.
+python3 scripts/06_import_demo.py
+```
+
+The importer is entirely **offline** — no model, no network, no key. Trust mode is
+only as trustworthy as its source; verify needs the after-state *and* the task
+fixture (diff-only / transcript-only imports fall back to trust and say so). A test
+shows the payoff: a broken change carrying a forged "tests passed" scores `passed`
+in trust mode but `failed` in verify mode. The synthetic run is a scripted solution
+— a harness exercise, not model capability.
+
 Optionally install the package and dev extras in a virtual environment:
 
 ```bash
@@ -327,7 +373,7 @@ environment caveats.
 | [`docs/METHODOLOGY.md`](docs/METHODOLOGY.md) | How agents are evaluated. |
 | [`docs/SECURITY_MODEL.md`](docs/SECURITY_MODEL.md) | Threat model and sandbox limits. |
 | [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md) | What is and isn't proven. |
-| [`docs/RESULTS.md`](docs/RESULTS.md) | Real baseline result table, regression + flakiness (Milestones 8–9). |
+| [`docs/RESULTS.md`](docs/RESULTS.md) | Real baseline result table, regression + flakiness, LLM/importer demos (Milestones 8–11). |
 | [`docs/REPRODUCIBILITY.md`](docs/REPRODUCIBILITY.md) | How to reproduce runs. |
 | [`docs/RESEARCH_QUESTIONS.md`](docs/RESEARCH_QUESTIONS.md) | Questions this platform probes. |
 

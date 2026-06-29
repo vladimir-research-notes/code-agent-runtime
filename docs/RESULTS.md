@@ -1,12 +1,13 @@
 # Results
 
-> **Status:** Milestone 10. The numbers below are a **real, reproducible** run of
+> **Status:** Milestone 11. The numbers below are a **real, reproducible** run of
 > the deterministic baseline agents over the shipped tasks — produced by
 > `scripts/02_generate_report.py` (or `code-agent-runtime eval run --dir tasks`),
 > not hand-written. They establish a floor and exercise every scoring method; no
 > model and no paid API are involved. Milestone 9 adds the regression and
-> flakiness analyses; Milestone 10 adds the **offline** LLM-adapter demo at the
-> end of this page — still no paid API call.
+> flakiness analyses; Milestone 10 adds the **offline** LLM-adapter demo; Milestone
+> 11 adds the **Claude Code trace importer** demo at the end of this page — all
+> still model-free and with no paid API call.
 
 ## Baseline suite
 
@@ -131,6 +132,33 @@ before any real run. A *real* paid run is opt-in via `run --agent llm --allow-pa
 (needs the `[claude]` extra, `ANTHROPIC_API_KEY`, and a `--max-cost-usd` ceiling)
 and is intentionally not part of any committed result.
 
+## Claude Code trace importer (Milestone 11)
+
+An **offline, no-spend** demonstration of the importer, produced by
+`scripts/06_import_demo.py`. A deterministic scripted solution stands in for a
+Claude Code run; the importer converts it into this runtime's trace format and
+scores it with the **same** scorer — no model, no network, no key.
+
+For `bugfix/sum-range-off-by-one`:
+
+| Step | Observed | Meaning |
+| --- | --- | --- |
+| Synthesize | `synthetic` source, 3 tool calls, changed `summation.py` | a Claude-Code-like run normalised into one import source |
+| Trust mode | `verified=False`, outcome **passed** | scored against the source's *declared* test result |
+| Verify mode | `verified=True`, outcome **passed** (replay agrees) | re-ran the *real* test command against the reconstructed workspace |
+| Forged claim | trust **passed** vs verify **failed** | a broken change with a forged "tests passed" is caught only by verification |
+
+The fourth row is the point of the milestone: **trust mode believes the source;
+verify mode measures it.** The converted run is a normal trace — it round-trips
+through the schema and replays with the existing `trace show` / `replay_trace`
+tooling, and an imported run is scored by the same `score_run` as a native one.
+
+Honest caveats: trust mode is only as trustworthy as its source; verify needs the
+after-state and the task fixture (diff-only / transcript-only imports fall back to
+trust and say so); reconstructed diff line-counts are best-effort (verification
+does not depend on them). The synthetic run is a scripted solution — a
+harness/plumbing exercise, not model capability.
+
 ## Reproducing
 
 ```
@@ -145,6 +173,11 @@ code-agent-runtime eval compare base.json cand.json        # regression report
 python3 scripts/05_llm_adapter_demo.py           # offline LLM-adapter demo (no spend)
 code-agent-runtime run bugfix/sum-range-off-by-one --agent llm            # offline solve
 code-agent-runtime run bugfix/sum-range-off-by-one --agent llm --dry-run  # cost preview, no call
+
+python3 scripts/06_import_demo.py                # offline importer demo (trust vs verify)
+code-agent-runtime import synthesize bugfix/sum-range-off-by-one --out results/raw/src.json
+code-agent-runtime import show results/raw/src.json
+code-agent-runtime import run results/raw/src.json --trace traces/  # convert + score + trace
 ```
 
 All default runs are CPU-only and require no paid API. See
@@ -154,6 +187,7 @@ All default runs are CPU-only and require no paid API. See
 
 - `src/code_agent_runtime/scoring/` (scorers, suite runner, `regression.py`)
 - `src/code_agent_runtime/reports/` (Markdown / HTML reports, `regression.py`)
-- `scripts/02_generate_report.py`, `scripts/03_regression_demo.py`, `results/`
-  (generated; gitignored)
+- `src/code_agent_runtime/importers/` (schema, diffs, sources, convert — Milestone 11)
+- `scripts/02_generate_report.py`, `scripts/03_regression_demo.py`,
+  `scripts/06_import_demo.py`, `results/` (generated; gitignored)
 - `docs/METHODOLOGY.md`, `docs/PLAN.md`

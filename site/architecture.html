@@ -26,7 +26,7 @@
 <main>
   <h1>Architecture</h1>
   <p class="lede">How a versioned task and an agent become a scored, replayable trace.</p>
-  <p><span class="status done">status: Milestone 10 — tasks, tools, the runtime loop, structured tracing, trace replay, sandbox controls, scoring + reports, regression + flakiness, and the optional cost-controlled LLM adapter implemented; Claude Code importer pending</span></p>
+  <p><span class="status done">status: Milestone 11 — tasks, tools, the runtime loop, structured tracing, trace replay, sandbox controls, scoring + reports, regression + flakiness, the optional cost-controlled LLM adapter, and the Claude Code trace importer implemented</span></p>
 
   <h2>Brief explanation</h2>
   <p>The runtime is an explicit pipeline. Each stage has a clear input and output so that
@@ -45,6 +45,7 @@
     <tr><td>Traces</td><td>traces/</td><td>Trace schema, recorder, replay, summarization.</td></tr>
     <tr><td>Scoring</td><td>scoring/</td><td>Test/file/diff/custom scorers and the suite runner (regression in M9).</td></tr>
     <tr><td>Reports</td><td>reports/</td><td>Markdown and HTML result reports.</td></tr>
+    <tr><td>Importers</td><td>importers/</td><td>Normalise an external (Claude-Code-like) run into a Trace and score it with the same scorer (M11).</td></tr>
   </table>
   <p>Design principles: deterministic-first, everything-is-traced, separation of policy and
   mechanism, and no hidden cost.</p>
@@ -184,6 +185,26 @@
   opts into a real run; <code>--dry-run</code> previews the request and cost with no call. No test
   makes a paid call. See <a href="evals.html">Evals</a>.</p>
 
+  <h2>Claude Code trace importer (Milestone 11)</h2>
+  <p>The <code>importers/</code> subpackage lets an <em>external</em> run enter the pipeline at the
+  scoring step rather than the agent loop. It normalises a Claude-Code-like run into an
+  <code>ImportedRun</code> (the external tool calls mapped onto this runtime's vocabulary, the
+  change, and any declared outcome), then <code>convert.import_to_run</code> produces a
+  <code>RunResult</code> + <code>Trace</code> scored by the <em>same</em> <code>score_run</code>
+  and replayable with the <em>same</em> tooling.</p>
+  <table>
+    <tr><th>Module</th><th>Responsibility</th></tr>
+    <tr><td><code>schema.py</code></td><td><code>ImportedRun</code>/<code>ImportedAction</code> (validation, JSON round-trip), tool-name mapping.</td></tr>
+    <tr><td><code>diffs.py</code></td><td><code>tree_diff</code> / <code>parse_unified_diff</code> → the <code>git_diff</code>-shaped dict the scorers consume (no <code>git</code> needed).</td></tr>
+    <tr><td><code>sources.py</code></td><td>the four builders (before/after, diff + log, transcript, synthetic) and <code>export_run</code>.</td></tr>
+    <tr><td><code>convert.py</code></td><td><code>import_to_run</code>: trust/verify evidence, step synthesis, and canonical trace construction via the recorder.</td></tr>
+  </table>
+  <p>Two scoring modes: <strong>verify</strong> reconstructs the workspace and re-runs the task's
+  real test command (this runtime's measurement); <strong>trust</strong> scores the source's
+  declared evidence. The imported <em>process</em> is preserved as the trace's steps in both. All
+  offline — no model, no network. See <a href="evals.html">Evals</a> and
+  <a href="tracing-replay.html">Tracing &amp; replay</a>.</p>
+
   <h2>Current implementation status</h2>
   <ul>
     <li>Package scaffold and CLI — done.</li>
@@ -196,7 +217,8 @@
     <li>Scoring (four methods + custom registry), suite runner, Markdown/HTML reports, and an <code>eval</code> CLI (Milestone 8) — done.</li>
     <li>Regression comparison and flakiness analysis, with <code>eval compare</code> / <code>eval rerun</code> (Milestone 9) — done.</li>
     <li>Optional cost-controlled LLM adapter — model-backed <code>llm</code> agent, budget guard, cache, redaction, dry-run; offline by default (Milestone 10) — done.</li>
-    <li>Claude Code trace importer and later milestones — pending.</li>
+    <li>Claude Code trace importer — normalise an external run into a Trace and score it with the same scorer (verify or trust mode), with an <code>import</code> CLI (Milestone 11) — done.</li>
+    <li>Reproducible case study and later milestones — pending.</li>
   </ul>
 
   <h2>Relevant files</h2>
@@ -212,8 +234,9 @@
     <li>src/code_agent_runtime/sandbox/ (policy, permissions, secret_scanner)</li>
     <li>src/code_agent_runtime/scoring/ (scorer, test/expected_files/diff/custom, suite, regression)</li>
     <li>src/code_agent_runtime/reports/ (markdown, html, regression)</li>
-    <li>tests/test_tools.py, test_runtime.py, test_traces.py, test_replay.py, test_sandbox.py, test_scoring.py, test_eval.py, test_regression.py, test_llm_adapter.py</li>
-    <li>scripts/02_generate_report.py, scripts/03_regression_demo.py, scripts/05_llm_adapter_demo.py, docs/PLAN.md</li>
+    <li>src/code_agent_runtime/importers/ (schema, diffs, sources, convert)</li>
+    <li>tests/test_tools.py, test_runtime.py, test_traces.py, test_replay.py, test_sandbox.py, test_scoring.py, test_eval.py, test_regression.py, test_llm_adapter.py, test_importers.py</li>
+    <li>scripts/02_generate_report.py, scripts/03_regression_demo.py, scripts/05_llm_adapter_demo.py, scripts/06_import_demo.py, docs/PLAN.md</li>
   </ul>
 
   <h2>Current test/result status</h2>

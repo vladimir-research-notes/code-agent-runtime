@@ -26,7 +26,7 @@
 <main>
   <h1>Results</h1>
   <p class="lede">A real, reproducible baseline — produced by the suite runner, not hand-written.</p>
-  <p><span class="status done">status: baseline run + regression/flakiness (Milestones 8–9)</span></p>
+  <p><span class="status done">status: baseline run + regression/flakiness (Milestones 8–9); offline LLM-adapter &amp; importer demos (Milestones 10–11)</span></p>
 
   <h2>Brief explanation</h2>
   <p>The deterministic baseline agents (<code>mock</code>, <code>scripted</code>, and
@@ -99,16 +99,29 @@
   <code>tests/test_regression.py</code>; the rule is narrow — <em>improved</em> = gained a pass,
   <em>regressed</em> = lost a pass.</p>
 
+  <h2>Offline demos: LLM adapter (M10) &amp; Claude Code importer (M11)</h2>
+  <p>Two model-free, no-spend demos extend the baseline. The <strong>LLM-adapter</strong> demo
+  (<code>scripts/05_llm_adapter_demo.py</code>) exercises the cost guard, cache, and redaction with a
+  deterministic fake client. The <strong>importer</strong> demo
+  (<code>scripts/06_import_demo.py</code>) synthesizes a Claude-Code-like run, then scores it both
+  ways: <em>trust</em> mode believes the source's declared result; <em>verify</em> mode re-runs the
+  task's real test command. The headline is the last row — a broken change with a forged
+  &ldquo;tests passed&rdquo; is scored <code>passed</code> in trust mode but <code>failed</code> in
+  verify mode, because verify <em>measures</em> what trust only <em>believes</em>. Full numbers and
+  the table are in <code>docs/RESULTS.md</code>.</p>
+
   <h2>Current implementation status</h2>
   <p>Implemented. The canonical narrative lives in <code>docs/RESULTS.md</code>; see
   <a href="evals.html">Evals</a> for the methodology. Re-run with
-  <code>scripts/02_generate_report.py</code> and <code>scripts/03_regression_demo.py</code>.</p>
+  <code>scripts/02_generate_report.py</code>, <code>scripts/03_regression_demo.py</code>,
+  <code>scripts/05_llm_adapter_demo.py</code>, and <code>scripts/06_import_demo.py</code>.</p>
 
   <h2>Relevant files</h2>
   <ul class="files">
     <li>docs/RESULTS.md, docs/METHODOLOGY.md, docs/REPRODUCIBILITY.md</li>
     <li>src/code_agent_runtime/scoring/ (incl. regression.py), src/code_agent_runtime/reports/</li>
-    <li>scripts/02_generate_report.py, scripts/03_regression_demo.py, results/ (generated; gitignored)</li>
+    <li>src/code_agent_runtime/importers/ (schema, diffs, sources, convert)</li>
+    <li>scripts/02_generate_report.py, scripts/03_regression_demo.py, scripts/05_llm_adapter_demo.py, scripts/06_import_demo.py, results/ (generated; gitignored)</li>
   </ul>
 
   <h2>Current test/result status</h2>

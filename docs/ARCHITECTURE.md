@@ -1,11 +1,11 @@
 # Architecture
 
-> **Status:** Milestone 10. Tasks, tools, the runtime loop, structured run
+> **Status:** Milestone 11. Tasks, tools, the runtime loop, structured run
 > tracing, trace replay/summarise tooling, permission policies / sandbox
 > controls, scoring + evaluation reports, regression comparison + flakiness
-> analysis, and the optional cost-controlled LLM adapter are implemented; the
-> Claude Code trace importer and later milestones follow (see
-> [`PLAN.md`](PLAN.md)). The component boundaries below are the design target.
+> analysis, the optional cost-controlled LLM adapter, and the Claude Code trace
+> importer are implemented; later milestones follow (see [`PLAN.md`](PLAN.md)).
+> The component boundaries below are the design target.
 
 ## Overview
 
@@ -31,6 +31,7 @@ task ──▶ workspace ──▶ agent loop ──▶ tools ──▶ tests �
 | Traces | `traces/` | Trace schema, recorder, replay, summarization. |
 | Scoring | `scoring/` | Test/file/diff/custom scorers, the suite runner, and regression/flakiness analysis (`regression.py`). |
 | Reports | `reports/` | Markdown/HTML suite reports and Markdown regression/flakiness reports. |
+| Importers | `importers/` | Normalise an external (Claude-Code-like) run into a `Trace` and score it with the same scorer (`convert.py`). |
 
 ## Data flow
 
@@ -48,6 +49,13 @@ task ──▶ workspace ──▶ agent loop ──▶ tools ──▶ tests �
    cleaned up.
 7. **Report** — emit a trace artifact and, for a suite of runs, a Markdown/HTML
    result table (`reports/`) over the `SuiteResult` from `scoring.run_suite`.
+
+An **imported** run (Milestone 11) enters this pipeline at the scoring step rather
+than the agent loop. `importers/` normalises an external Claude-Code-like run into
+an `ImportedRun`, then `convert.import_to_run` produces a `RunResult` + `Trace`
+that the **same** `score_run` and the **same** replay/report tooling consume — in
+*verify* mode by reconstructing the workspace and re-running the task's real test
+command, or in *trust* mode against the source's declared evidence.
 
 ## Design principles
 
@@ -103,7 +111,14 @@ task ──▶ workspace ──▶ agent loop ──▶ tools ──▶ tests �
       preview; offline by default via a deterministic `FakeLLMClient`, with an
       opt-in, lazily-imported `ClaudeAPIClient` for a real `run --agent llm
       --allow-paid` run (Milestone 10). No test makes a paid call.
-- [ ] Claude Code trace importer and later milestones — pending.
+- [x] Claude Code trace importer — an `importers/` subpackage that normalises an
+      external run (before/after dirs, diff + command log, exported transcript, or
+      a deterministic synthetic run) into an `ImportedRun`, then converts it into a
+      `RunResult` + `Trace` scored by the same `score_run` (`convert.import_to_run`).
+      *Verify* mode reconstructs the workspace and re-runs the real test command;
+      *trust* mode scores the declared evidence; an `import` CLI group drives it
+      (Milestone 11). Entirely offline — no model, no network.
+- [ ] Reproducible case study and later milestones — pending.
 
 ## Relevant files
 
@@ -117,8 +132,10 @@ task ──▶ workspace ──▶ agent loop ──▶ tools ──▶ tests �
 - `src/code_agent_runtime/sandbox/` (policy, permissions, secret_scanner)
 - `src/code_agent_runtime/scoring/` (scorer, test/expected_files/diff/custom, suite, regression)
 - `src/code_agent_runtime/reports/` (markdown, html, regression)
+- `src/code_agent_runtime/importers/` (schema, diffs, sources, convert)
 - `tasks/`, `examples/` (example task definitions and fixtures)
-- `scripts/02_generate_report.py`, `scripts/03_regression_demo.py`, `scripts/05_llm_adapter_demo.py`
+- `scripts/02_generate_report.py`, `scripts/03_regression_demo.py`,
+  `scripts/05_llm_adapter_demo.py`, `scripts/06_import_demo.py`
 - `docs/PLAN.md` (target layout and milestones)
 
 ## Open questions

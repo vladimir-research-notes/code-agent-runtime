@@ -1,9 +1,10 @@
 # Evaluation methodology
 
-> **Status:** Milestone 10. Scoring, the suite runner, result reports, and
+> **Status:** Milestone 11. Scoring, the suite runner, result reports, and
 > regression/flakiness analysis are implemented; the deterministic baseline has
 > been run — see [`RESULTS.md`](RESULTS.md). The optional cost-controlled LLM
-> adapter adds a model-backed agent that is disabled and offline by default; no
+> adapter adds a model-backed agent that is disabled and offline by default; the
+> Claude Code trace importer scores an *external* run with the same scorer. No
 > paid call is made in tests.
 
 ## Goal
@@ -41,7 +42,13 @@ and **honest about uncertainty** — not to produce a leaderboard.
   cache, and transcript redaction — with no API key and no spend. It demonstrates
   the *harness*, not genuine model reasoning, so it is a plumbing/cost baseline,
   not a capability measurement.
-- **Optional real LLM / imported runs** — cost-guarded and clearly labeled.
+- **Imported runs (Milestone 11)** — an *external* coding-agent run (a
+  Claude-Code-like workflow) normalised and scored with the **same** scorer. The
+  evidence comes one of two ways: *verify* mode reconstructs the workspace and
+  re-runs the task's real test command (a genuine measurement), while *trust* mode
+  scores the source's declared diff/test result (the source's claim). A reported
+  imported result must say which mode produced it.
+- **Optional real LLM runs** — cost-guarded and clearly labeled.
 
 ## Cost control for model runs
 
@@ -117,6 +124,32 @@ A "0 regressions" comparison means *no key lost a pass relative to the baseline*
 not that the candidate is correct. Small repeat counts make flakiness a smoke
 check, not a flake-probability estimate.
 
+## Importing external runs (Milestone 11)
+
+To compare this runtime's agents against a Claude-Code-like run, that external run
+must be measured the same way. The importer normalises four input forms —
+before/after directories, a diff + command log, an exported transcript, or a
+deterministic synthetic run — into one `ImportedRun`, then converts it into a
+`RunResult` + `Trace` scored by the same `score_run`.
+
+The methodological pivot is **trust vs. verify**:
+
+- *trust* scores the source's **declared** evidence (the diff and a test result it
+  asserts). It is fast and the only option when the import carries no file content,
+  but it inherits the source's trustworthiness — a wrong claim yields a wrong
+  verdict.
+- *verify* reconstructs the workspace from the imported after-state over the task's
+  fixture and runs the task's **real** test command, so the verdict is this
+  runtime's measurement. This is the admissible path for any comparison that
+  matters; a test demonstrates that a broken change with a forged passing claim is
+  scored `failed` only in verify mode.
+
+Because the imported *process* (the external tool calls) is preserved as the
+trace's steps in both modes, an imported run is inspectable with the same `trace
+show` / `replay_trace` tooling — the verdict and the timeline come from the same
+artifact. A reported imported number must record its mode and (for trust) that the
+evidence was declared, not measured.
+
 ## Current implementation status
 
 - [x] Scoring (`scoring/`), suite runner (`run_suite`), and Markdown/HTML reports
@@ -126,10 +159,14 @@ check, not a flake-probability estimate.
 - [x] Optional cost-controlled LLM adapter (`agents/llm/`, `run --agent llm`,
       `--dry-run`, `--allow-paid`) — Milestone 10. Offline by default; no paid
       call in tests.
+- [x] Claude Code trace importer (`importers/`, `import` CLI) — Milestone 11.
+      Scores an external run with the same scorer in verify or trust mode; offline.
 
 ## Relevant files
 
 - `src/code_agent_runtime/scoring/` (incl. `regression.py`), `src/code_agent_runtime/reports/`
 - `src/code_agent_runtime/agents/llm/` (client, pricing, budget, cache, protocol, agent, claude_client)
-- `scripts/02_generate_report.py`, `scripts/03_regression_demo.py`, `scripts/05_llm_adapter_demo.py`
+- `src/code_agent_runtime/importers/` (schema, diffs, sources, convert)
+- `scripts/02_generate_report.py`, `scripts/03_regression_demo.py`,
+  `scripts/05_llm_adapter_demo.py`, `scripts/06_import_demo.py`
 - `docs/RESEARCH_QUESTIONS.md`, `docs/RESULTS.md`, `docs/PLAN.md`

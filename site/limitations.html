@@ -26,20 +26,21 @@
 <main>
   <h1>Limitations &amp; non-goals</h1>
   <p class="lede">What is true today, and what this project deliberately is not.</p>
-  <p><span class="status scaffold">status: current as of Milestone 10</span></p>
+  <p><span class="status scaffold">status: current as of Milestone 11</span></p>
 
   <h2>Brief explanation</h2>
-  <p>As of Milestone 10 the repository has a package and CLI, docs, website, packaging, CPU-only
+  <p>As of Milestone 11 the repository has a package and CLI, docs, website, packaging, CPU-only
   tests, an environment check and hygiene scanner, a versioned task format, a tool registry with
   seven core tools, a runtime loop that drives mock/scripted agents over a task, structured run
   tracing, trace replay/debugging tooling, permission policies and sandbox controls (enforced
   by default, with output redaction), scoring with evaluation reports (all four scoring
   methods, a suite runner, and Markdown/HTML output), regression comparison with flakiness
   analysis (diff two result files into improved/regressed/unchanged/flaky buckets, plus a rerun
-  mode), and an optional cost-controlled LLM adapter (a model-backed <code>llm</code> agent
+  mode), an optional cost-controlled LLM adapter (a model-backed <code>llm</code> agent
   behind a hard pre-call budget guard, a response cache, transcript redaction, and a
   <code>--dry-run</code> cost preview — offline by default via a deterministic fake client,
-  opt-in to a real Claude API run). The Claude Code trace importer is not built yet.</p>
+  opt-in to a real Claude API run), and a Claude Code trace importer (normalise an external run
+  into this runtime's trace format and score it with the same scorer, in verify or trust mode).</p>
 
   <h2>Deeper technical explanation</h2>
   <h3>Known limitations</h3>
@@ -87,6 +88,16 @@
       offline <code>run --agent llm</code> &ldquo;passing&rdquo; reflects the scripted solution and
       the plumbing. A real run is opt-in (<code>--allow-paid</code>, the <code>[claude]</code> extra,
       an API key, a budget) and is intentionally absent from tests and committed results.</li>
+    <li><strong>An imported run is only as trustworthy as its mode.</strong> The importer's
+      <em>trust</em> mode scores the source's <em>declared</em> diff/test result — it believes the
+      source. Only <em>verify</em> mode re-derives the verdict, by reconstructing the workspace from
+      the imported after-state over the task fixture and re-running the task's real test command (a
+      test shows a broken change with a forged &ldquo;tests passed&rdquo; is caught only in verify).
+      Verify needs the after-state <em>and</em> the task fixture; diff-only / transcript-only imports
+      fall back to trust and say so. Reconstructed diff line-counts are best-effort (matching
+      <code>--numstat</code> for ordinary text changes; verification does not depend on them);
+      snapshots are text-only; verify runs the test command under the tool output/time caps but not
+      the sandbox path/command policy (it is this runtime's own materialisation).</li>
     <li><strong>Environment assumption.</strong> Tests assume <code>python3</code> 3.10+ with
       <code>pytest</code>; the <code>src/</code> layout plus <code>conftest.py</code> shim runs
       the suite without an install.</li>
@@ -103,14 +114,15 @@
   <ul class="files">
     <li>docs/LIMITATIONS.md</li>
     <li>docs/SECURITY_MODEL.md</li>
+    <li>src/code_agent_runtime/importers/ (schema, diffs, sources, convert)</li>
     <li>docs/PLAN.md</li>
   </ul>
 
   <h2>Current test/result status</h2>
   <p>CPU-only tests pass, including environment, hygiene-scanner, task, tool, runtime,
-  tracing, replay, sandbox, scoring, eval, regression/flakiness, and LLM-adapter tests (the
-  adapter is tested entirely offline — no API key, no network); nothing beyond Milestone 10 is
-  claimed.</p>
+  tracing, replay, sandbox, scoring, eval, regression/flakiness, LLM-adapter, and importer tests
+  (the adapter and importer are tested entirely offline — no API key, no network); nothing beyond
+  Milestone 11 is claimed.</p>
 
   <h2>Open questions / limitations</h2>
   <p>Each milestone narrows these as real subsystems land and are tested.</p>

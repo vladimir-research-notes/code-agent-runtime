@@ -26,7 +26,7 @@
 <main>
   <h1>Tracing &amp; replay</h1>
   <p class="lede">A run that cannot be replayed from its trace is a bug, not a feature.</p>
-  <p><span class="status scaffold">status: Milestone 6 — trace recorder and replay/summarise tooling implemented</span></p>
+  <p><span class="status scaffold">status: Milestone 6 — trace recorder and replay/summarise tooling implemented; Milestone 11 — an external run can be imported into this same trace format</span></p>
 
   <h2>Brief explanation</h2>
   <p>Every run can be recorded as a structured, JSON-serialisable <strong>trace</strong>:
@@ -72,6 +72,24 @@
   text summary) and <code>trace_to_markdown</code> (a fuller Markdown report with the timeline,
   tool calls, test-output tail, and unified diff as headings and tables).</p>
 
+  <h2>Importing an external run into this trace format (Milestone 11)</h2>
+  <p>A trace need not come from this runtime's own loop. The <code>importers/</code> package takes
+  a coding-agent run produced <em>elsewhere</em> — a Claude-Code-like workflow — and normalises it
+  into an <code>ImportedRun</code> (the external tool calls mapped onto this runtime's vocabulary,
+  the change, and any declared outcome), then <code>import_to_run</code> drives the <em>same</em>
+  <code>TraceRecorder</code> to produce a <code>Trace</code> that is byte-for-byte the same shape
+  and replays identically with everything above. So an imported run is inspectable with
+  <code>trace show</code> / <code>replay_trace</code> and scored by the same scorer as a native
+  one — one timeline, one verdict mechanism.</p>
+  <p>The scoring evidence comes one of two ways. <strong>Verify</strong> mode reconstructs the
+  workspace by materialising the imported after-state over the task fixture and re-runs the task's
+  <em>real</em> test command (a genuine measurement); <strong>trust</strong> mode scores the
+  source's <em>declared</em> diff/test result. The imported <em>process</em> is preserved as the
+  trace's steps in both modes — only the evidence differs. Four input forms normalise in:
+  before/after directories, a diff + command log, an exported transcript, and a deterministic
+  synthetic run this runtime generates itself (the basis for a round-trip parity check). It is all
+  offline — no model, no network.</p>
+
   <h2>Current implementation status</h2>
   <p>Implemented (Milestones 5–6). The <code>traces/</code> package defines the schema
   (<code>Trace</code>, <code>TraceEvent</code>, <code>SCHEMA_VERSION</code>) and a
@@ -91,7 +109,8 @@
     <li>src/code_agent_runtime/traces/replay.py (ReplayedRun, ToolCallView, Anomaly, replay_trace)</li>
     <li>src/code_agent_runtime/traces/summarize.py (summarize_trace, trace_to_markdown)</li>
     <li>src/code_agent_runtime/runtime/agent_loop.py (run_task recorder hooks)</li>
-    <li>tests/test_traces.py, tests/test_replay.py</li>
+    <li>src/code_agent_runtime/importers/ (schema, diffs, sources, convert — imports an external run into this trace format)</li>
+    <li>tests/test_traces.py, tests/test_replay.py, tests/test_importers.py</li>
   </ul>
 
   <h2>Current test/result status</h2>
@@ -116,6 +135,10 @@
     confirm it reproduces is a later, optional capability.</li>
     <li><code>trace show</code> / <code>trace report</code> are inspectors: they exit non-zero
     only on a missing/malformed trace, not on a failed run.</li>
+    <li><strong>An imported trace is only as trustworthy as its mode.</strong> Trust mode records
+    the source's <em>declared</em> evidence; only verify mode re-runs the test command. Verify
+    needs the after-state and the task fixture — diff-only / transcript-only imports fall back to
+    trust and say so. See <a href="evals.html">Evals</a> and <a href="limitations.html">Limitations</a>.</li>
   </ul>
 </main>
 <footer class="site">Code Agent Runtime — research/engineering scaffold. Built milestone by milestone.</footer>

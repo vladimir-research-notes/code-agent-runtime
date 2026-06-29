@@ -1,6 +1,6 @@
 # Limitations and non-goals
 
-> **Status:** current as of Milestone 10. Updated at every milestone.
+> **Status:** current as of Milestone 11. Updated at every milestone.
 
 ## What is true today
 
@@ -23,8 +23,10 @@
   and an **optional cost-controlled LLM adapter** (a model-backed `llm` agent
   behind a hard pre-call budget guard, a response cache, transcript redaction, and
   a `--dry-run` cost preview; offline-by-default via a deterministic fake client,
-  opt-in to a real Claude API run with `--allow-paid`; Milestone 10) are
-  implemented.
+  opt-in to a real Claude API run with `--allow-paid`; Milestone 10), and a
+  **Claude Code trace importer** (normalise an external run into a `Trace` and
+  score it with the same scorer, in verify or trust mode; `import` CLI;
+  Milestone 11) are implemented.
 - **Regression judges only pass/fail.** A key is *improved* only if it gained a
   pass and *regressed* only if it lost one; a "0 regressions" comparison is not a
   correctness proof. Flakiness needs repeats (two single-run files cannot reveal
@@ -70,6 +72,24 @@
   credential patterns as the sandbox/hygiene scanner, so it can miss novel or
   obfuscated secrets and does not detect non-secret sensitive data; with
   `--no-redact-transcript` it is off.
+- **An imported run is only as trustworthy as its mode.** The importer's *trust*
+  mode scores the source's **declared** diff/test result — it believes the source.
+  Only *verify* mode re-derives the verdict, by reconstructing the workspace from
+  the imported after-state over the task fixture and re-running the task's real
+  test command; a test proves a broken change with a forged "tests passed" is
+  caught only in verify mode. Verify therefore needs the after-state *and* the
+  task's fixture (the same baseline the external run started from for the
+  reconstructed diff to be meaningful); diff-only and transcript-only imports
+  carry no file content, so `auto` falls back to trust and says so.
+- **Reconstructed diff counts are best-effort.** The importer rebuilds a
+  `git_diff`-shaped summary from a unified diff text (or two content snapshots)
+  without invoking `git`; the +/- line counts match `git diff --numstat` for
+  ordinary text changes but may differ for renames, binary files, or unusual
+  context. Verification does not depend on these counts; only trust-mode
+  `diff_constraint` scoring does. Snapshots are text-only (binary/oversized files
+  are skipped), and verify runs the test command under the tool output/time caps
+  but **not** the sandbox path/command policy (it is this runtime's own
+  materialisation, not an untrusted agent).
 - **Hygiene secret detection is heuristic.** It uses high-precision patterns
   that favor avoiding false positives over catching every secret, so it can miss
   novel or obfuscated credentials. It is not a guarantee that no secret can be
@@ -108,4 +128,5 @@ trace artifacts, result tables, or an explicit statement of a limitation.
 - `docs/PLAN.md`, `docs/SECURITY_MODEL.md`, `docs/RESULTS.md`
 - `src/code_agent_runtime/sandbox/` (policy, permissions, secret_scanner)
 - `src/code_agent_runtime/agents/llm/` (client, pricing, budget, cache, protocol, agent, claude_client)
+- `src/code_agent_runtime/importers/` (schema, diffs, sources, convert)
 - `src/code_agent_runtime/hygiene.py`, `src/code_agent_runtime/environment.py`

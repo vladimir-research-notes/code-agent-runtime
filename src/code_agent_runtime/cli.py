@@ -16,8 +16,13 @@ rerun`` re-runs the matrix N times and reports flaky keys), and the Milestone 10
 optional cost-controlled LLM adapter (``run --agent llm`` drives a task through a
 model-backed agent; offline by default via a deterministic fake client, with
 ``--dry-run`` to preview the request and its cost, and ``--allow-paid`` to opt
-into a real, budget-guarded Claude API run). Later milestones add a Claude Code
-trace importer (see ``docs/PLAN.md``).
+into a real, budget-guarded Claude API run), and the Milestone 11 Claude Code
+trace importer (``import synthesize`` writes a deterministic synthetic
+Claude-Code-like run; ``import before-after`` builds one from two directory
+snapshots; ``import show`` summarises a normalised import source; ``import run``
+converts it into this runtime's trace format and scores it with the same scorer —
+in verify mode by re-running the task's test command, or in trust mode against the
+source's declared evidence).
 """
 
 from __future__ import annotations
@@ -33,6 +38,7 @@ from . import PROJECT_NAME, PROJECT_SUMMARY, __version__
 from . import agents as _agents
 from . import environment as _environment
 from . import hygiene as _hygiene
+from . import importers as _importers
 from . import reports as _reports
 from . import runtime as _runtime
 from . import scoring as _scoring
@@ -42,8 +48,8 @@ from . import traces as _traces
 
 # The milestone the runtime currently implements. Kept here so ``info`` can
 # report honest project status without scanning the filesystem.
-CURRENT_MILESTONE = "Milestone 10 — Optional cost-controlled LLM adapter"
-NEXT_MILESTONE = "Milestone 11 — Claude Code trace importer"
+CURRENT_MILESTONE = "Milestone 11 — Claude Code trace importer"
+NEXT_MILESTONE = "Milestone 12 — Reproducible case study"
 
 #: Default directory the ``tasks`` subcommands scan.
 DEFAULT_TASKS_DIR = "tasks"
@@ -113,6 +119,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_run_parser(subparsers)
     _add_trace_parser(subparsers)
     _add_eval_parser(subparsers)
+    _add_import_parser(subparsers)
 
     return parser
 
@@ -472,6 +479,102 @@ def _add_eval_parser(subparsers: argparse._SubParsersAction) -> None:
         help="Print the flakiness report as JSON to stdout instead of Markdown.",
     )
     p_rerun.set_defaults(func=_cmd_eval_rerun)
+
+
+def _add_import_parser(subparsers: argparse._SubParsersAction) -> None:
+    """Add the ``import`` command group — the Milestone 11 Claude Code trace importer.
+
+    ``synthesize`` writes a deterministic, offline synthetic Claude-Code-like run;
+    ``before-after`` builds an import source from two directory snapshots; ``show``
+    summarises a normalised import source; ``run`` converts an import source into
+    this runtime's trace format and scores it with the same scorer (verify mode
+    re-runs the task's test command; trust mode scores the declared evidence).
+    """
+    p_import = subparsers.add_parser(
+        "import",
+        help="Import an external (Claude-Code-like) run, convert it to a trace, and score it.",
+    )
+    p_import.set_defaults(func=_make_help_printer(p_import))
+    actions = p_import.add_subparsers(dest="import_command", metavar="<action>")
+
+    p_syn = actions.add_parser(
+        "synthesize",
+        help="Write a deterministic, offline synthetic Claude-Code-like import source for a task.",
+    )
+    p_syn.add_argument("ident", help="Task id (must have a built-in solution) or path.")
+    p_syn.add_argument(
+        "--dir", default=DEFAULT_TASKS_DIR, help="Directory to search by id (default: tasks/)."
+    )
+    p_syn.add_argument(
+        "--out", default=None, metavar="PATH", help="Write the import source JSON to PATH."
+    )
+    p_syn.set_defaults(func=_cmd_import_synthesize)
+
+    p_ba = actions.add_parser(
+        "before-after",
+        help="Build an import source from a before/after directory pair (supports verification).",
+    )
+    p_ba.add_argument("before", help="Path to the workspace snapshot before the external run.")
+    p_ba.add_argument("after", help="Path to the workspace snapshot after the external run.")
+    p_ba.add_argument("--task", default=None, metavar="ID", help="Task id this run targets.")
+    p_ba.add_argument(
+        "--out", default=None, metavar="PATH", help="Write the import source JSON to PATH."
+    )
+    p_ba.set_defaults(func=_cmd_import_before_after)
+
+    p_show = actions.add_parser("show", help="Summarise a normalised import source.")
+    p_show.add_argument("source", help="Path to an import source JSON (from `import synthesize`).")
+    p_show.add_argument("--json", action="store_true", help="Emit the summary as JSON.")
+    p_show.set_defaults(func=_cmd_import_show)
+
+    p_run = actions.add_parser(
+        "run",
+        help="Convert an import source into a scored trace (verify or trust mode).",
+    )
+    p_run.add_argument("source", help="Path to an import source JSON.")
+    p_run.add_argument(
+        "--task",
+        default=None,
+        metavar="ID",
+        help="Task id to score against (default: the source's recorded task_id).",
+    )
+    p_run.add_argument(
+        "--dir", default=DEFAULT_TASKS_DIR, help="Directory to search for the task (default: tasks/)."
+    )
+    p_run.add_argument(
+        "--mode",
+        choices=["auto", "verify", "trust"],
+        default="auto",
+        help=(
+            "auto (default): re-run the test command if the after-state and fixture "
+            "are available, else trust the declared evidence. verify: require "
+            "re-running. trust: always score the declared evidence."
+        ),
+    )
+    p_run.add_argument(
+        "--no-tests",
+        action="store_true",
+        help="In verify mode, skip re-running the test command (diff/expected-file scoring only).",
+    )
+    p_run.add_argument(
+        "--trace",
+        nargs="?",
+        const="traces",
+        default=None,
+        metavar="PATH",
+        help=(
+            "Write the converted trace. PATH ending in .json is the output file; any "
+            "other PATH (default: traces/) is a directory it is written into."
+        ),
+    )
+    p_run.add_argument(
+        "--report",
+        default=None,
+        metavar="PATH",
+        help="Write a Markdown report of the converted trace to PATH.",
+    )
+    p_run.add_argument("--json", action="store_true", help="Emit the import outcome as JSON.")
+    p_run.set_defaults(func=_cmd_import_run)
 
 
 def _make_help_printer(parser: argparse.ArgumentParser):
@@ -1030,6 +1133,172 @@ def _cmd_eval_rerun(args: argparse.Namespace) -> int:
         print(_reports.flakiness_to_markdown(report))
 
     return 1 if report.has_flakes else 0
+
+
+# -- import (Milestone 11) --------------------------------------------------
+
+
+def _write_or_print_import(imported: _importers.ImportedRun, out: str | None) -> int:
+    """Write an import source to ``out`` (JSON), or print it to stdout."""
+    if out:
+        written = _importers.write_import_source(imported, out)
+        print(f"import source written: {written}", file=sys.stderr)
+    else:
+        print(json.dumps(imported.to_dict(), indent=2))
+    return 0
+
+
+def _cmd_import_synthesize(args: argparse.Namespace) -> int:
+    """Write a deterministic, offline synthetic Claude-Code-like import for a task."""
+    try:
+        task = _tasks.find_task(args.dir, args.ident, resolve_fixture=True)
+    except _tasks.TaskValidationError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    try:
+        imported = _importers.synthesize_import(task)
+    except KeyError as exc:
+        # No built-in solution to replay into a synthetic run.
+        print(str(exc), file=sys.stderr)
+        return 1
+    return _write_or_print_import(imported, args.out)
+
+
+def _cmd_import_before_after(args: argparse.Namespace) -> int:
+    """Build an import source from a before/after directory pair."""
+    try:
+        imported = _importers.import_before_after(args.before, args.after, task_id=args.task)
+    except _importers.ImportSourceError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    return _write_or_print_import(imported, args.out)
+
+
+def _load_import_or_report(path: str) -> _importers.ImportedRun | None:
+    """Load an import source, or print a readable error and return ``None``."""
+    try:
+        return _importers.load_import_source(path)
+    except _importers.ImportSourceError as exc:
+        print(str(exc), file=sys.stderr)
+        return None
+
+
+def _import_summary(imported: _importers.ImportedRun) -> dict:
+    """Compact, JSON-friendly summary used by ``import show``."""
+    diff = imported.diff or {}
+    return {
+        "source_kind": imported.source_kind,
+        "task_id": imported.task_id,
+        "agent_label": imported.agent_label,
+        "actions": len(imported.actions),
+        "tool_calls": sum(1 for a in imported.actions if a.kind == "tool_call"),
+        "has_after_state": imported.has_after_state,
+        "changed_files": sorted(imported.files),
+        "diff": {
+            "files": len(diff.get("files", [])),
+            "insertions": diff.get("insertions"),
+            "deletions": diff.get("deletions"),
+            "untracked": len(diff.get("untracked", [])),
+        }
+        if imported.diff is not None
+        else None,
+        "declared_tests_passed": (imported.tests or {}).get("passed")
+        if imported.tests is not None
+        else None,
+        "unknown_tools": list(imported.unknown_tools),
+        "verifiable": imported.has_after_state,
+    }
+
+
+def _cmd_import_show(args: argparse.Namespace) -> int:
+    imported = _load_import_or_report(args.source)
+    if imported is None:
+        return 1
+    summary = _import_summary(imported)
+    if args.json:
+        print(json.dumps(summary, indent=2))
+        return 0
+    lines = [
+        f"Import source: {args.source}",
+        f"  source kind   : {summary['source_kind']}",
+        f"  task id       : {summary['task_id'] or '(unset)'}",
+        f"  agent label   : {summary['agent_label']}",
+        f"  actions       : {summary['actions']} ({summary['tool_calls']} tool call(s))",
+        f"  after-state   : {'yes' if summary['has_after_state'] else 'no'} "
+        f"({len(summary['changed_files'])} changed file(s))",
+    ]
+    if summary["diff"] is not None:
+        d = summary["diff"]
+        lines.append(
+            f"  diff          : {d['files']} file(s), +{d['insertions']}/-{d['deletions']}"
+            + (f", {d['untracked']} new" if d["untracked"] else "")
+        )
+    lines.append(f"  declared tests: {summary['declared_tests_passed']}")
+    if summary["unknown_tools"]:
+        lines.append(f"  unknown tools : {', '.join(summary['unknown_tools'])}")
+    lines.append(
+        f"  verifiable    : {'yes (has after-state)' if summary['verifiable'] else 'no (trust-only)'}"
+    )
+    print("\n".join(lines))
+    return 0
+
+
+def _resolve_import_task(args: argparse.Namespace, imported: _importers.ImportedRun):
+    """Resolve the task an import should be scored against (``--task`` or source)."""
+    ident = args.task or imported.task_id
+    if not ident:
+        print(
+            "no task to score against: pass --task ID (the import source has no task_id).",
+            file=sys.stderr,
+        )
+        return None
+    try:
+        # Do not require the fixture to exist: trust mode does not need it, and
+        # verify mode checks availability itself (degrading or erroring cleanly).
+        return _tasks.find_task(args.dir, ident, resolve_fixture=False)
+    except _tasks.TaskValidationError as exc:
+        print(str(exc), file=sys.stderr)
+        return None
+
+
+def _cmd_import_run(args: argparse.Namespace) -> int:
+    imported = _load_import_or_report(args.source)
+    if imported is None:
+        return 1
+    task = _resolve_import_task(args, imported)
+    if task is None:
+        return 1
+
+    config = _runtime.RunConfig(run_tests=not args.no_tests)
+    try:
+        outcome = _importers.import_to_run(imported, task, mode=args.mode, config=config)
+    except _importers.ImportSourceError as exc:
+        # e.g. --mode verify on an import that cannot be verified.
+        print(str(exc), file=sys.stderr)
+        return 2
+
+    if args.json:
+        print(json.dumps(outcome.to_dict(), indent=2))
+    else:
+        print(_runtime.format_run_report(outcome.result))
+        print(f"\nimport mode  : {outcome.mode} -> {'verified' if outcome.verified else 'trusted'}")
+        print(f"import note  : {outcome.note}")
+
+    if args.trace is not None:
+        written = _traces.write_trace(outcome.trace, args.trace)
+        print(f"trace written: {written} ({len(outcome.trace.events)} events)", file=sys.stderr)
+    if args.report:
+        out = Path(args.report)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(_traces.trace_to_markdown(outcome.trace), encoding="utf-8")
+        print(f"report written: {out}", file=sys.stderr)
+
+    # Exit code mirrors the verdict: 0 passed/not-scored, 1 failed, 2 errored.
+    if outcome.result.outcome == _runtime.RunOutcome.ERROR:
+        return 2
+    if outcome.result.outcome == _runtime.RunOutcome.FAILED:
+        return 1
+    return 0
 
 
 def main(argv: Sequence[str] | None = None) -> int:
