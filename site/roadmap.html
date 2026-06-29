@@ -26,7 +26,7 @@
 <main>
   <h1>Roadmap</h1>
   <p class="lede">Built milestone by milestone; committed locally after each coherent step.</p>
-  <p><span class="status done">status: Milestones 0–12 complete; Milestone 13 (website polish) in progress</span></p>
+  <p><span class="status done">status: Milestones 0–14 complete — the plan is finished</span></p>
 
   <h2>Brief explanation</h2>
   <p>The platform is built in small, verifiable milestones. Each milestone runs its tests,
@@ -48,12 +48,12 @@
     <tr><td>10</td><td>Optional cost-controlled LLM adapter</td><td>done</td></tr>
     <tr><td>11</td><td>Claude Code trace importer</td><td>done</td></tr>
     <tr><td>12</td><td>Reproducible case study</td><td>done</td></tr>
-    <tr><td>13</td><td>Multi-page website polish</td><td>in progress</td></tr>
-    <tr><td>14</td><td>Final hardening</td><td>planned</td></tr>
+    <tr><td>13</td><td>Multi-page website polish</td><td>done</td></tr>
+    <tr><td>14</td><td>Final hardening</td><td>done</td></tr>
   </table>
 
   <h2>Current implementation status</h2>
-  <p>Milestones 0–12 are complete: package scaffold, CLI, docs skeleton, this website,
+  <p>All fifteen milestones (0–14) are complete: package scaffold, CLI, docs skeleton, this website,
   packaging, CPU-only tests, an environment check and repository hygiene scanner, a versioned
   task format (schema, loader, example tasks, and <code>tasks</code> CLI), a tool registry
   with seven structured core tools (and a <code>tools</code> CLI), a local runtime state
@@ -80,7 +80,13 @@
   declared evidence — via the <code>import</code> CLI), and a reproducible case study (13 small
   but genuine tasks across all five categories, run by both baselines plus the sandbox probes,
   emitting a result CSV, Markdown/HTML reports, and one trace per run, via
-  <code>scripts/07_case_study.py</code> and a new <code>suite_to_csv</code> exporter).</p>
+  <code>scripts/07_case_study.py</code> and a new <code>suite_to_csv</code> exporter), a polished,
+  internally consistent multi-page website (uniform six-section pages and self-contained inline-SVG
+  diagrams, enforced by <code>tests/test_site_quality.py</code>), and final hardening — a
+  <code>release-check</code> gate that aggregates the release-readiness checks (source compiles,
+  hygiene/no-secrets/no-large-artifacts, docs consistency, website consistency, README quality,
+  reproducibility, plus optional lint/tests), via <code>release.py</code> and
+  <code>scripts/08_final_checks.py</code>.</p>
 
   <h2>Relevant files</h2>
   <ul class="files">
@@ -91,13 +97,16 @@
     <li>src/code_agent_runtime/agents/ (incl. llm/, solutions.py, probes.py), src/code_agent_runtime/runtime/</li>
     <li>src/code_agent_runtime/traces/, src/code_agent_runtime/sandbox/</li>
     <li>src/code_agent_runtime/scoring/ (incl. regression.py), src/code_agent_runtime/reports/ (incl. csv.py)</li>
-    <li>src/code_agent_runtime/importers/, scripts/07_case_study.py</li>
+    <li>src/code_agent_runtime/importers/, src/code_agent_runtime/release.py</li>
+    <li>scripts/07_case_study.py, scripts/08_final_checks.py</li>
   </ul>
 
   <h2>Current test/result status</h2>
   <p>All CPU-only tests pass, including a website-quality test that asserts every required page
-  carries the six standard sections, links the full navigation, and references only existing pages.
-  Next: Milestone 14 — Final hardening.</p>
+  carries the six standard sections, links the full navigation, and references only existing pages,
+  and a release-readiness test that asserts the repository passes every required final-hardening
+  check (and that each check fails on a broken input). All fifteen milestones (0–14) are complete;
+  no further milestones are planned.</p>
 
   <h2>Open questions / limitations</h2>
   <p>The plan may evolve as real subsystems land; this table is updated at every milestone.</p>

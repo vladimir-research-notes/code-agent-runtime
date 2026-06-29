@@ -22,7 +22,10 @@ Claude-Code-like run; ``import before-after`` builds one from two directory
 snapshots; ``import show`` summarises a normalised import source; ``import run``
 converts it into this runtime's trace format and scores it with the same scorer —
 in verify mode by re-running the task's test command, or in trust mode against the
-source's declared evidence).
+source's declared evidence), and the Milestone 14 final-hardening gate
+(``release-check`` aggregates the project's release-readiness checks — source
+compiles, hygiene/no-secrets/no-large-artifacts, docs consistency, website
+consistency, README quality, reproducibility, plus optional lint/tests).
 """
 
 from __future__ import annotations
@@ -39,6 +42,7 @@ from . import agents as _agents
 from . import environment as _environment
 from . import hygiene as _hygiene
 from . import importers as _importers
+from . import release as _release
 from . import reports as _reports
 from . import runtime as _runtime
 from . import scoring as _scoring
@@ -48,8 +52,8 @@ from . import traces as _traces
 
 # The milestone the runtime currently implements. Kept here so ``info`` can
 # report honest project status without scanning the filesystem.
-CURRENT_MILESTONE = "Milestone 13 — Multi-page website polish"
-NEXT_MILESTONE = "Milestone 14 — Final hardening"
+CURRENT_MILESTONE = "Milestone 14 — Final hardening"
+NEXT_MILESTONE = "All planned milestones complete (see docs/PLAN.md)"
 
 #: Default directory the ``tasks`` subcommands scan.
 DEFAULT_TASKS_DIR = "tasks"
@@ -113,6 +117,23 @@ def build_parser() -> argparse.ArgumentParser:
     p_hyg.add_argument("--strict", action="store_true", help="Treat warnings as failures too.")
     p_hyg.add_argument("--json", action="store_true", help="Emit the report as JSON.")
     p_hyg.set_defaults(func=_cmd_hygiene)
+
+    p_rel = subparsers.add_parser(
+        "release-check",
+        help="Run the Milestone 14 final-hardening checks (consistency, hygiene, README, docs).",
+    )
+    p_rel.add_argument("--root", default=".", help="Repository root to check (default: cwd).")
+    p_rel.add_argument(
+        "--with-tests", action="store_true", help="Also run the CPU-only test suite (slow)."
+    )
+    p_rel.add_argument(
+        "--with-lint", action="store_true", help="Also run `ruff check` if ruff is installed."
+    )
+    p_rel.add_argument(
+        "--strict", action="store_true", help="Also fail if an optional check ran and failed."
+    )
+    p_rel.add_argument("--json", action="store_true", help="Emit the report as JSON.")
+    p_rel.set_defaults(func=_cmd_release_check)
 
     _add_tasks_parser(subparsers)
     _add_tools_parser(subparsers)
@@ -615,6 +636,19 @@ def _cmd_hygiene(args: argparse.Namespace) -> int:
     if args.json:
         forwarded.append("--json")
     return _hygiene.main(forwarded)
+
+
+def _cmd_release_check(args: argparse.Namespace) -> int:
+    forwarded = ["--root", args.root]
+    if args.with_tests:
+        forwarded.append("--with-tests")
+    if args.with_lint:
+        forwarded.append("--with-lint")
+    if args.strict:
+        forwarded.append("--strict")
+    if args.json:
+        forwarded.append("--json")
+    return _release.main(forwarded)
 
 
 def _task_summary(task: _tasks.Task) -> dict:

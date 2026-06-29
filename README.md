@@ -8,8 +8,9 @@ infrastructure *around* coding agents — task setup, tools, permissions,
 execution, tracing, replay, scoring, regression comparison, and reports. It is
 **not** a tutorial, a clone of a commercial tool, or a benchmark leaderboard.
 
-> Status: **Milestone 13 — Multi-page website polish (in progress).** This
-> repository is being built milestone by milestone (see [`docs/PLAN.md`](docs/PLAN.md)).
+> Status: **Milestone 14 — Final hardening (complete). All planned milestones
+> (0–14) are done.** This repository was built milestone by milestone (see
+> [`docs/PLAN.md`](docs/PLAN.md)).
 > The package, docs, website, packaging, and tests exist, plus an environment check, a
 > repository hygiene scanner, a versioned task format (schema, loader, example
 > tasks, `tasks` CLI), a tool registry with seven structured core tools (`tools`
@@ -41,9 +42,14 @@ execution, tracing, replay, scoring, regression comparison, and reports. It is
 > inspectable trace per run, via `scripts/07_case_study.py` and a `suite_to_csv`
 > exporter; the committed table is [`docs/RESULTS.md`](docs/RESULTS.md) and
 > [`docs/results/case_study.csv`](docs/results/case_study.csv)).
-> Milestone 13 polishes the multi-page website — uniform six-section pages,
+> Milestone 13 polished the multi-page website — uniform six-section pages,
 > consistent status, and self-contained inline-SVG diagrams, enforced by
-> `tests/test_site_quality.py`; final hardening (Milestone 14) remains.
+> `tests/test_site_quality.py`. Milestone 14 adds final hardening: a
+> `release-check` gate (`scripts/08_final_checks.py`) that aggregates the
+> release-readiness checks — source compiles, hygiene / no-secrets /
+> no-large-artifacts, docs consistency, website consistency, README quality, and
+> reproducibility, plus optional lint/tests — and a `tests/test_release.py` that
+> proves each check fails on a broken input.
 
 ## Design constraints
 
@@ -103,6 +109,34 @@ The hygiene scanner inspects **git-tracked files** (filesystem-walk fallback
 outside a git work tree) for secrets, virtualenvs, caches, `node_modules`, large
 files, result blobs, model weights, and a committed local Claude settings file.
 Secret detection is heuristic; see [`docs/SECURITY_MODEL.md`](docs/SECURITY_MODEL.md).
+
+### Final-hardening gate (Milestone 14)
+
+One aggregated, offline gate runs the project's release-readiness checks and
+reports them as a single pass/fail. Eight checks are **required** (they gate the
+verdict); two are **optional** and off by default (so the gate stays fast and
+needs no extra tooling):
+
+```bash
+# Run the final-hardening checks over this repo (exit non-zero on a required failure):
+python3 scripts/08_final_checks.py
+PYTHONPATH=src python3 -m code_agent_runtime release-check --strict
+
+# Also run ruff (if installed) and the full test suite:
+python3 scripts/08_final_checks.py --with-lint --with-tests
+```
+
+The required checks are: source compiles, hygiene clean, no secrets, no large
+artifacts, docs consistency (every milestone has its three notes and the CLI's
+reported milestone matches the latest), website consistency (the ten pages exist,
+link the full nav, resolve internal links, and reference no external asset), README
+quality (substantial, expected sections, all relative links resolve), and
+reproducibility instructions present. `lint` (ruff) and `tests` (pytest) are
+optional. This is a **structural** gate — it does not render the site, run a real
+linter by default, or prove the docs describe the code; a green `release-check`
+with `tests` skipped does **not** assert the suite passed. `tests/test_release.py`
+asserts the repo passes every required check *and* that each check fails on a
+deliberately broken input.
 
 ### Tasks (Milestone 2)
 

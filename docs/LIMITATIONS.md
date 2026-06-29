@@ -1,6 +1,6 @@
 # Limitations and non-goals
 
-> **Status:** current as of Milestone 12 (Milestone 13 polishes the website only). Updated at every milestone.
+> **Status:** current as of Milestone 14 (final hardening completes the plan). Updated at every milestone.
 
 ## What is true today
 
@@ -26,7 +26,16 @@
   opt-in to a real Claude API run with `--allow-paid`; Milestone 10), and a
   **Claude Code trace importer** (normalise an external run into a `Trace` and
   score it with the same scorer, in verify or trust mode; `import` CLI;
-  Milestone 11) are implemented.
+  Milestone 11), a **reproducible case study** (13 tasks across all five
+  categories, run by both baselines plus the sandbox probes into a committed result
+  CSV, reports, and one trace per run; `scripts/07_case_study.py`; Milestone 12), a
+  **polished, internally consistent multi-page website** (uniform six-section pages
+  and self-contained inline-SVG diagrams, enforced by a website-quality test;
+  Milestone 13), and **final hardening** (a `release-check` gate aggregating the
+  release-readiness checks — source compiles, hygiene/no-secrets/no-large-artifacts,
+  docs and website consistency, README quality, reproducibility, plus optional
+  lint/tests; `release-check` / `scripts/08_final_checks.py`; Milestone 14) are
+  implemented.
 - **Regression judges only pass/fail.** A key is *improved* only if it gained a
   pass and *regressed* only if it lost one; a "0 regressions" comparison is not a
   correctness proof. Flakiness needs repeats (two single-run files cannot reveal

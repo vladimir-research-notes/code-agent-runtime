@@ -43,6 +43,7 @@
       <li><a href="#llm">LLM adapter (M10)</a></li>
       <li><a href="#importer">Trace importer (M11)</a></li>
       <li><a href="#case-study">Case study (M12)</a></li>
+      <li><a href="#hardening">Final hardening (M14)</a></li>
       <li><a href="#status">Implementation status</a></li>
       <li><a href="#files">Relevant files</a></li>
       <li><a href="#tests">Test/result status</a></li>
@@ -295,6 +296,19 @@
   lives at <code>docs/results/case_study.csv</code>; a test regenerates it and asserts a byte match
   so it cannot silently drift. See <a href="results.html">Results</a>.</p>
 
+  <h2 id="hardening">Final hardening (Milestone 14)</h2>
+  <p>The last milestone adds the gate that keeps the repository releasable rather than a new
+  subsystem. <code>code_agent_runtime.release.run_release_checks</code> returns a structured
+  report of ten checks — eight <strong>required</strong> (source compiles; hygiene clean;
+  no secrets; no large artifacts; docs consistency, which couples the CLI's reported milestone to
+  the latest milestone note; website consistency; README quality; reproducibility) and two
+  <strong>optional</strong> (<code>lint</code> via ruff and <code>tests</code> via pytest, off by
+  default so the gate stays fast, free, and offline). It is exposed as
+  <code>release-check</code> and <code>scripts/08_final_checks.py</code>, and reuses the
+  Milestone&nbsp;1 hygiene scan. A test asserts the repository passes every required check
+  <em>and</em> that each check fails on a deliberately broken input, so the gate has teeth.
+  See <a href="limitations.html">Limitations</a> for what the structural gate does not prove.</p>
+
   <h2 id="status">Current implementation status</h2>
   <ul>
     <li>Package scaffold and CLI — done.</li>
@@ -311,7 +325,10 @@
     <li>Reproducible case study — 13 tasks across all five categories, both baselines plus the
       probes, a result CSV, reports, and one trace per run (Milestone 12) — done.</li>
     <li>Multi-page website polish — uniform six-section pages, consistent status, inline-SVG
-      diagrams, and an on-this-page index (Milestone 13) — in progress.</li>
+      diagrams, and an on-this-page index (Milestone 13) — done.</li>
+    <li>Final hardening — a <code>release-check</code> gate aggregating the release-readiness
+      checks, with a <code>release-check</code> CLI subcommand and
+      <code>scripts/08_final_checks.py</code> (Milestone 14) — done.</li>
   </ul>
 
   <h2 id="files">Relevant files</h2>
@@ -328,9 +345,10 @@
     <li>src/code_agent_runtime/scoring/ (scorer, test/expected_files/diff/custom, suite, regression)</li>
     <li>src/code_agent_runtime/reports/ (markdown, html, csv, regression)</li>
     <li>src/code_agent_runtime/importers/ (schema, diffs, sources, convert)</li>
+    <li>src/code_agent_runtime/release.py (the Milestone 14 final-hardening checker)</li>
     <li>tasks/, examples/ (the 13 case-study tasks and fixtures)</li>
-    <li>tests/test_tools.py, test_runtime.py, test_traces.py, test_replay.py, test_sandbox.py, test_scoring.py, test_eval.py, test_regression.py, test_llm_adapter.py, test_importers.py, test_case_study.py, test_site_quality.py</li>
-    <li>scripts/02_generate_report.py, scripts/03_regression_demo.py, scripts/05_llm_adapter_demo.py, scripts/06_import_demo.py, scripts/07_case_study.py</li>
+    <li>tests/test_tools.py, test_runtime.py, test_traces.py, test_replay.py, test_sandbox.py, test_scoring.py, test_eval.py, test_regression.py, test_llm_adapter.py, test_importers.py, test_case_study.py, test_site_quality.py, test_release.py</li>
+    <li>scripts/02_generate_report.py, scripts/03_regression_demo.py, scripts/05_llm_adapter_demo.py, scripts/06_import_demo.py, scripts/07_case_study.py, scripts/08_final_checks.py</li>
   </ul>
 
   <h2 id="tests">Current test/result status</h2>
@@ -341,7 +359,9 @@
   regression/flakiness buckets and the determinism check, the LLM adapter (offline), and the
   importer (round-trip + verify-catches-forgery). The Milestone 12 case study runs 13 tasks × the
   baselines into a committed, byte-stable CSV; a layout test asserts every required website page
-  carries the six standard sections and links to the whole nav. Tests needing <code>git</code>
+  carries the six standard sections and links to the whole nav; and the Milestone 14
+  release-readiness test asserts the repository passes every required final-hardening check and that
+  each check fails on a deliberately broken input. Tests needing <code>git</code>
   skip when it is absent.</p>
 
   <h2 id="limits">Open questions / limitations</h2>

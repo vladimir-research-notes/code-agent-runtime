@@ -26,10 +26,10 @@
 <main>
   <h1>Limitations &amp; non-goals</h1>
   <p class="lede">What is true today, and what this project deliberately is not.</p>
-  <p><span class="status scaffold">status: current as of Milestone 12; website polish in progress (Milestone 13)</span></p>
+  <p><span class="status scaffold">status: current as of Milestone 14 (final hardening) — the plan is complete</span></p>
 
   <h2>Brief explanation</h2>
-  <p>As of Milestone 12 the repository has a package and CLI, docs, website, packaging, CPU-only
+  <p>As of Milestone 14 the repository has a package and CLI, docs, website, packaging, CPU-only
   tests, an environment check and hygiene scanner, a versioned task format, a tool registry with
   seven core tools, a runtime loop that drives mock/scripted agents over a task, structured run
   tracing, trace replay/debugging tooling, permission policies and sandbox controls (enforced
@@ -42,7 +42,9 @@
   opt-in to a real Claude API run), and a Claude Code trace importer (normalise an external run
   into this runtime's trace format and score it with the same scorer, in verify or trust mode),
   and a reproducible case study (13 tasks across all five categories, run by both deterministic
-  baselines plus the sandbox probes into a committed result CSV, reports, and one trace per run).</p>
+  baselines plus the sandbox probes into a committed result CSV, reports, and one trace per run),
+  a polished, internally consistent multi-page website, and final hardening (a
+  <code>release-check</code> gate aggregating the release-readiness checks).</p>
 
   <h2>Deeper technical explanation</h2>
   <h3>Known limitations</h3>
@@ -104,6 +106,14 @@
     <li><strong>Environment assumption.</strong> Tests assume <code>python3</code> 3.10+ with
       <code>pytest</code>; the <code>src/</code> layout plus <code>conftest.py</code> shim runs
       the suite without an install.</li>
+    <li><strong>The final-hardening gate is structural, not semantic.</strong> Milestone 14's
+      <code>release-check</code> verifies that sections, links, milestone notes, and the CLI status
+      constant are present and consistent and that tracked files are clean — it does not render the
+      website, run a real linter by default, or prove the docs describe the code accurately
+      (<code>source_compiles</code> is a syntax floor, not a type checker). Its <code>lint</code> and
+      <code>tests</code> checks are optional and off by default, so a green <code>release-check</code>
+      does <em>not</em> by itself assert the suite passed — run <code>--with-tests</code> (or
+      <code>python3 -m pytest -q</code>) for that. Content correctness still relies on review.</li>
   </ul>
   <h3>Non-goals</h3>
   <p>Not a production-secure sandbox; not a replacement for any commercial coding agent; not a
@@ -118,14 +128,16 @@
     <li>docs/LIMITATIONS.md</li>
     <li>docs/SECURITY_MODEL.md</li>
     <li>src/code_agent_runtime/importers/ (schema, diffs, sources, convert)</li>
+    <li>src/code_agent_runtime/release.py, scripts/08_final_checks.py</li>
     <li>docs/PLAN.md</li>
   </ul>
 
   <h2>Current test/result status</h2>
   <p>CPU-only tests pass, including environment, hygiene-scanner, task, tool, runtime,
   tracing, replay, sandbox, scoring, eval, regression/flakiness, LLM-adapter, importer, case-study,
-  and website-quality tests (the adapter and importer are tested entirely offline — no API key, no
-  network); nothing beyond Milestone 12 is claimed (Milestone 13 polishes the website only).</p>
+  website-quality, and release-readiness tests (the adapter and importer are tested entirely offline
+  — no API key, no network); nothing beyond Milestone 14 is claimed, and Milestone 14 adds only the
+  structural <code>release-check</code> gate, not new runtime behaviour.</p>
 
   <h2>Open questions / limitations</h2>
   <p>Each milestone narrows these as real subsystems land and are tested.</p>
