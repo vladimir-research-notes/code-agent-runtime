@@ -26,7 +26,7 @@
 <main>
   <h1>Architecture</h1>
   <p class="lede">How a versioned task and an agent become a scored, replayable trace.</p>
-  <p><span class="status done">status: Milestone 8 — tasks, tools, the runtime loop, structured tracing, trace replay, sandbox controls, and scoring + reports implemented; regression comparison pending</span></p>
+  <p><span class="status done">status: Milestone 10 — tasks, tools, the runtime loop, structured tracing, trace replay, sandbox controls, scoring + reports, regression + flakiness, and the optional cost-controlled LLM adapter implemented; Claude Code importer pending</span></p>
 
   <h2>Brief explanation</h2>
   <p>The runtime is an explicit pipeline. Each stage has a clear input and output so that
@@ -39,7 +39,7 @@
     <tr><th>Component</th><th>Package (target)</th><th>Responsibility</th></tr>
     <tr><td>Tasks</td><td>tasks/</td><td>Load and validate versioned task definitions.</td></tr>
     <tr><td>Runtime</td><td>runtime/</td><td>Agent loop, state machine, context, tool dispatch.</td></tr>
-    <tr><td>Agents</td><td>agents/</td><td>Mock, scripted, human, optional LLM agents.</td></tr>
+    <tr><td>Agents</td><td>agents/</td><td>Mock, scripted, probe, and the optional cost-guarded LLM agent (agents/llm/).</td></tr>
     <tr><td>Tools</td><td>tools/</td><td>Structured file, patch, shell, git, test, search tools.</td></tr>
     <tr><td>Sandbox</td><td>sandbox/</td><td>Permission policy, secret scanning, runners.</td></tr>
     <tr><td>Traces</td><td>traces/</td><td>Trace schema, recorder, replay, summarization.</td></tr>
@@ -160,6 +160,30 @@
   <code>scripts/02_generate_report.py</code>. See <a href="evals.html">Evals</a> and
   <a href="results.html">Results</a>.</p>
 
+  <h2>Optional cost-controlled LLM adapter (Milestone 10)</h2>
+  <p>The <code>agents/llm/</code> subpackage adds a model-backed <code>llm</code> agent that plugs
+  into the same one-action-per-step contract the baselines use, so the runtime, tracer, and scorer
+  treat it identically. It is built so the real provider is strictly optional: nothing imports a
+  network library at load time. Each step funnels through the safety machinery in order — render and
+  <strong>redact</strong> the next turn, check the <strong>response cache</strong> (a hit is free),
+  and on a miss ask the <strong>budget guard</strong> to clear the call's worst case
+  <em>before</em> contacting the client, then record the actual usage and parse the reply into one
+  action.</p>
+  <table>
+    <tr><th>Module</th><th>Responsibility</th></tr>
+    <tr><td><code>client.py</code></td><td>the <code>LLMClient</code> seam, plus a deterministic offline <code>FakeLLMClient</code>.</td></tr>
+    <tr><td><code>pricing.py</code></td><td>token estimation + an (approximate, overridable) model price table.</td></tr>
+    <tr><td><code>budget.py</code></td><td>the <code>BudgetGuard</code>: a hard pre-call ceiling; unpriced ⇒ refused.</td></tr>
+    <tr><td><code>cache.py</code></td><td>content-hash response cache (memory + optional disk).</td></tr>
+    <tr><td><code>protocol.py</code></td><td>prompt building and <code>parse_action</code> (model text → one <code>AgentAction</code>).</td></tr>
+    <tr><td><code>agent.py</code></td><td><code>LLMAgent</code>, the offline builder, and <code>dry_run_plan</code>.</td></tr>
+    <tr><td><code>claude_client.py</code></td><td>the real <code>ClaudeAPIClient</code>, lazily importing <code>anthropic</code>.</td></tr>
+  </table>
+  <p>Disabled by default and offline by default: <code>run --agent llm</code> uses the fake client
+  (solving tasks via their known-good solution through the wire format) unless <code>--allow-paid</code>
+  opts into a real run; <code>--dry-run</code> previews the request and cost with no call. No test
+  makes a paid call. See <a href="evals.html">Evals</a>.</p>
+
   <h2>Current implementation status</h2>
   <ul>
     <li>Package scaffold and CLI — done.</li>
@@ -170,7 +194,9 @@
     <li>Trace replay/summarise with <code>trace show</code> / <code>trace report</code> (Milestone 6) — done.</li>
     <li>Permission policies and sandbox controls, enforced by default, with secret redaction (Milestone 7) — done.</li>
     <li>Scoring (four methods + custom registry), suite runner, Markdown/HTML reports, and an <code>eval</code> CLI (Milestone 8) — done.</li>
-    <li>Regression comparison, model adapters — pending.</li>
+    <li>Regression comparison and flakiness analysis, with <code>eval compare</code> / <code>eval rerun</code> (Milestone 9) — done.</li>
+    <li>Optional cost-controlled LLM adapter — model-backed <code>llm</code> agent, budget guard, cache, redaction, dry-run; offline by default (Milestone 10) — done.</li>
+    <li>Claude Code trace importer and later milestones — pending.</li>
   </ul>
 
   <h2>Relevant files</h2>
@@ -179,15 +205,15 @@
     <li>src/code_agent_runtime/cli.py</li>
     <li>src/code_agent_runtime/tasks/ (schema, loader, fixtures)</li>
     <li>src/code_agent_runtime/tools/ (base, registry, seven tools, _exec)</li>
-    <li>src/code_agent_runtime/agents/ (base, mock, scripted, solutions)</li>
+    <li>src/code_agent_runtime/agents/ (base, mock, scripted, solutions, probes)</li>
+    <li>src/code_agent_runtime/agents/llm/ (client, pricing, budget, cache, protocol, agent, claude_client)</li>
     <li>src/code_agent_runtime/runtime/ (state, execution, agent_loop, report)</li>
     <li>src/code_agent_runtime/traces/ (schema, recorder, store, replay, summarize)</li>
     <li>src/code_agent_runtime/sandbox/ (policy, permissions, secret_scanner)</li>
-    <li>src/code_agent_runtime/scoring/ (scorer, test/expected_files/diff/custom, suite)</li>
-    <li>src/code_agent_runtime/reports/ (markdown, html)</li>
-    <li>src/code_agent_runtime/agents/probes.py (the unsafe probe agent)</li>
-    <li>tests/test_tools.py, test_runtime.py, test_traces.py, test_replay.py, test_sandbox.py, test_scoring.py, test_eval.py</li>
-    <li>scripts/02_generate_report.py, docs/PLAN.md</li>
+    <li>src/code_agent_runtime/scoring/ (scorer, test/expected_files/diff/custom, suite, regression)</li>
+    <li>src/code_agent_runtime/reports/ (markdown, html, regression)</li>
+    <li>tests/test_tools.py, test_runtime.py, test_traces.py, test_replay.py, test_sandbox.py, test_scoring.py, test_eval.py, test_regression.py, test_llm_adapter.py</li>
+    <li>scripts/02_generate_report.py, scripts/03_regression_demo.py, scripts/05_llm_adapter_demo.py, docs/PLAN.md</li>
   </ul>
 
   <h2>Current test/result status</h2>
@@ -205,8 +231,11 @@
       redaction) — but <strong>not</strong> process/namespace isolation. Command matching is by
       program name and network enforcement is heuristic; a containerized runner is a future option.</li>
     <li>Scoring covers all four methods plus a custom registry and a suite runner (Milestone 8);
-      regression comparison across two result files is Milestone 9. A passing test command is
-      evidence, not proof, of correctness.</li>
+      regression comparison and flakiness across result files is Milestone 9. A passing test command
+      is evidence, not proof, of correctness.</li>
+    <li>The LLM adapter's cost guard is bounded by its inputs: pricing is approximate (verify before
+      a paid run; an unpriced model is refused) and token counts are a <code>chars/4</code> heuristic;
+      the offline fake replays a fixed solution, demonstrating the harness, not model reasoning.</li>
     <li><code>apply_patch</code> applies exact-context unified diffs (no fuzzy matching, no
       binary patches, no rename detection).</li>
     <li>What is the minimal trace schema that still supports faithful replay?

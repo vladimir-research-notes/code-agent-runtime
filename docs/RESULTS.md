@@ -1,11 +1,12 @@
 # Results
 
-> **Status:** Milestone 9. The numbers below are a **real, reproducible** run of
+> **Status:** Milestone 10. The numbers below are a **real, reproducible** run of
 > the deterministic baseline agents over the shipped tasks — produced by
 > `scripts/02_generate_report.py` (or `code-agent-runtime eval run --dir tasks`),
 > not hand-written. They establish a floor and exercise every scoring method; no
 > model and no paid API are involved. Milestone 9 adds the regression and
-> flakiness analyses summarised at the end of this page.
+> flakiness analyses; Milestone 10 adds the **offline** LLM-adapter demo at the
+> end of this page — still no paid API call.
 
 ## Baseline suite
 
@@ -103,6 +104,33 @@ and *flaky* buckets are demonstrated on synthetic "fake agent versions" in
 pass, regressed = lost a pass.** Any other outcome change (e.g. `failed → error`)
 is reported `unchanged` with the transition shown in the report's `detail` column.
 
+## Optional cost-controlled LLM adapter (Milestone 10)
+
+An **offline, no-spend** demonstration of the model-backed `llm` agent and its
+cost-control machinery, produced by `scripts/05_llm_adapter_demo.py`. The agent is
+driven by a deterministic fake client that replays the task's known-good solution
+through the model wire format, so the whole path runs with **no API key and no
+paid call**; the budget guard prices every (free) call at *approximate* published
+list pricing.
+
+For `bugfix/sum-range-off-by-one` with the default `claude-haiku-4-5` model:
+
+| Property | Observed | Meaning |
+| --- | --- | --- |
+| Offline solve | `passed`, 3 tool calls, 4 priced calls, network = `False` | the model-backed path solves the task with no network |
+| Caching | 2nd identical run spent **$0.000000** over 0 calls (4 cache hits) | identical requests are served free from the cache |
+| Dry-run 1st-call cost | `claude-haiku-4-5` ≈ **$0.0056** vs `claude-opus-4-8` ≈ **$0.083** | worst-case cost previewed with **no** call made |
+| Transcript redaction | secret in transcript = `False` (1 redaction) | a credential-shaped reply is scrubbed before storage |
+| Hard budget stop | refused before client contacted = `True` | a `$0` ceiling refuses the call *pre-call* |
+
+These are *plumbing and cost* facts, not a capability measurement: the fake client
+replays a fixed solution, so the run demonstrates the harness and the cost guard,
+**not** genuine model reasoning. Dollar figures depend on the approximate pricing
+table and the `chars/4` token heuristic; verify against current Anthropic pricing
+before any real run. A *real* paid run is opt-in via `run --agent llm --allow-paid`
+(needs the `[claude]` extra, `ANTHROPIC_API_KEY`, and a `--max-cost-usd` ceiling)
+and is intentionally not part of any committed result.
+
 ## Reproducing
 
 ```
@@ -113,6 +141,10 @@ code-agent-runtime eval run --dir tasks --json   # machine-readable suite result
 python3 scripts/03_regression_demo.py            # flakiness + regression demo
 code-agent-runtime eval rerun --dir tasks --repeats 3      # flakiness report
 code-agent-runtime eval compare base.json cand.json        # regression report
+
+python3 scripts/05_llm_adapter_demo.py           # offline LLM-adapter demo (no spend)
+code-agent-runtime run bugfix/sum-range-off-by-one --agent llm            # offline solve
+code-agent-runtime run bugfix/sum-range-off-by-one --agent llm --dry-run  # cost preview, no call
 ```
 
 All default runs are CPU-only and require no paid API. See

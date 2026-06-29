@@ -8,7 +8,7 @@ infrastructure *around* coding agents — task setup, tools, permissions,
 execution, tracing, replay, scoring, regression comparison, and reports. It is
 **not** a tutorial, a clone of a commercial tool, or a benchmark leaderboard.
 
-> Status: **Milestone 9 — Regression comparison and flakiness analysis.** This
+> Status: **Milestone 10 — Optional cost-controlled LLM adapter.** This
 > repository is being built milestone by milestone (see [`docs/PLAN.md`](docs/PLAN.md)).
 > The package, docs, website, packaging, and tests exist, plus an environment check, a
 > repository hygiene scanner, a versioned task format (schema, loader, example
@@ -26,8 +26,12 @@ execution, tracing, replay, scoring, regression comparison, and reports. It is
 > `eval` CLI; a real baseline is in [`docs/RESULTS.md`](docs/RESULTS.md)), and
 > regression comparison + flakiness analysis (diff two result files into
 > improved/regressed/unchanged/flaky buckets, and re-run the suite N times to flag
-> non-deterministic keys, via `eval compare` / `eval rerun`).
-> Optional cost-controlled model adapters are not yet implemented.
+> non-deterministic keys, via `eval compare` / `eval rerun`), and an optional
+> cost-controlled LLM adapter (a model-backed `llm` agent behind a hard pre-call
+> budget guard, a response cache, transcript redaction, and a `--dry-run` cost
+> preview — offline by default via a deterministic fake client, opt-in to a real
+> Claude API run with `--allow-paid`).
+> The Claude Code trace importer is the next milestone.
 
 ## Design constraints
 
@@ -260,6 +264,47 @@ A "0 regressions" comparison means *no key lost a pass relative to the baseline*
 not that the candidate is correct. Because the deterministic baseline cannot
 regress against itself, the *regressed* and *flaky* buckets are demonstrated on
 synthetic "fake agent versions" in `tests/test_regression.py`.
+
+### Optional cost-controlled LLM adapter (Milestone 10)
+
+A model-backed `llm` agent plugs into the same one-action-per-step contract the
+deterministic baselines use, wrapped in the safety machinery a paid run requires:
+a **hard pre-call budget guard** (it prices each call's worst case — estimated
+input plus full `max_tokens` of output — and refuses *before* contacting the model
+if that could exceed `--max-cost-usd`), a **response cache** (identical requests
+are served free), **transcript redaction** (credential-shaped text is scrubbed
+from what is sent to and stored from the model), and a **`--dry-run`** preview that
+prints the first request and its estimated cost without making any call.
+
+It is **disabled by default and offline by default**. With no `--allow-paid`, the
+agent is driven by a deterministic *fake client* that replays a task's known-good
+solution through the model wire format — so the whole path (prompt → parse →
+action → tool → score) runs, and the guard/cache/redaction are exercised, with
+**no API key and no spend**. A real Claude API run is strictly opt-in.
+
+```bash
+# Offline (fake client): solves the task through the model wire format, no API key.
+PYTHONPATH=src python3 -m code_agent_runtime run bugfix/sum-range-off-by-one --agent llm
+
+# Dry run: print the first request + estimated worst-case cost; make NO calls.
+PYTHONPATH=src python3 -m code_agent_runtime run bugfix/sum-range-off-by-one --agent llm --dry-run
+PYTHONPATH=src python3 -m code_agent_runtime run bugfix/sum-range-off-by-one --agent llm --dry-run --llm-model claude-opus-4-8
+
+# Offline tour of solve / caching / dry-run / redaction / hard budget stop:
+python3 scripts/05_llm_adapter_demo.py
+
+# Real, paid run (opt-in): needs the extra + a key + a budget ceiling.
+pip install -e '.[claude]'
+export ANTHROPIC_API_KEY=...   # never committed
+PYTHONPATH=src python3 -m code_agent_runtime run bugfix/sum-range-off-by-one \
+    --agent llm --allow-paid --max-cost-usd 0.25 --llm-model claude-haiku-4-5
+```
+
+Pricing in the cost guard is **approximate published list pricing** and must be
+verified against current Anthropic pricing before a paid run (it is overridable);
+an *unpriced* model is refused rather than guessed. The offline fake replays a
+fixed solution — it demonstrates the harness, **not** genuine model reasoning. No
+test makes a paid call.
 
 Optionally install the package and dev extras in a virtual environment:
 

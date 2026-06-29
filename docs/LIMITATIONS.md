@@ -1,6 +1,6 @@
 # Limitations and non-goals
 
-> **Status:** current as of Milestone 9. Updated at every milestone.
+> **Status:** current as of Milestone 10. Updated at every milestone.
 
 ## What is true today
 
@@ -19,9 +19,12 @@
   evaluation reports** (all four scoring methods, a suite runner, Markdown/HTML
   reports, and an `eval` CLI; Milestone 8), and **regression comparison with
   flakiness analysis** (diff two result files into improved/regressed/unchanged/
-  flaky buckets, plus a rerun mode; `eval compare` / `eval rerun`; Milestone 9)
-  are implemented.
-- Optional cost-controlled model adapters are **not** implemented yet.
+  flaky buckets, plus a rerun mode; `eval compare` / `eval rerun`; Milestone 9),
+  and an **optional cost-controlled LLM adapter** (a model-backed `llm` agent
+  behind a hard pre-call budget guard, a response cache, transcript redaction, and
+  a `--dry-run` cost preview; offline-by-default via a deterministic fake client,
+  opt-in to a real Claude API run with `--allow-paid`; Milestone 10) are
+  implemented.
 - **Regression judges only pass/fail.** A key is *improved* only if it gained a
   pass and *regressed* only if it lost one; a "0 regressions" comparison is not a
   correctness proof. Flakiness needs repeats (two single-run files cannot reveal
@@ -49,6 +52,24 @@
 - **Production trace timestamps are non-deterministic.** The recorder reads the
   real wall/monotonic clock by default (intended); tests inject a fake clock for
   reproducibility.
+- **The LLM cost guard is bounded by its inputs.** Pricing is *approximate
+  published list pricing* baked into a table (`agents/llm/pricing.py`) that **must
+  be verified against current Anthropic pricing before a paid run**; it is
+  overridable, and an unpriced model is refused rather than estimated. Token
+  counts use a `chars/4` heuristic, not a real tokenizer — fine for the *worst
+  case* the pre-call guard bounds (estimated input + full `max_tokens` of output),
+  but not an exact predictor; actual usage is recorded from the provider after the
+  call. The guard stops spend, it does not make a model correct.
+- **The offline LLM agent is a harness exercise, not model reasoning.** Its
+  default `FakeLLMClient` replays a task's *known-good solution* through the model
+  wire format, so an offline `run --agent llm` "passing" reflects the scripted
+  solution and the plumbing, not a model's capability. A real run is opt-in
+  (`--allow-paid`, the `[claude]` extra, an API key, a `--max-cost-usd` ceiling)
+  and is intentionally absent from tests and committed results.
+- **Transcript redaction is heuristic.** It reuses the same high-precision
+  credential patterns as the sandbox/hygiene scanner, so it can miss novel or
+  obfuscated secrets and does not detect non-secret sensitive data; with
+  `--no-redact-transcript` it is off.
 - **Hygiene secret detection is heuristic.** It uses high-precision patterns
   that favor avoiding false positives over catching every secret, so it can miss
   novel or obfuscated credentials. It is not a guarantee that no secret can be
@@ -57,8 +78,10 @@
   scanned; gitignored-but-present files are ignored on purpose, and bare
   `env`/`ENV` directories are not treated as virtualenvs (to avoid false
   positives). Use `--include-untracked` to widen scope.
-- **No evaluations.** [`RESULTS.md`](RESULTS.md) is intentionally empty.
-- **No model integration.** There are no LLM calls and no Claude adapters yet.
+- **Model integration is optional and opt-in.** The `llm` adapter exists, but the
+  default path is offline (fake client) and no test or committed result makes a
+  paid call. A real Claude run requires the `[claude]` extra, an API key, and an
+  explicit budget; the real `ClaudeAPIClient` is only constructed on `--allow-paid`.
 - **Environment assumption.** Tests assume `python3` (3.10+) with `pytest`
   available. The repo uses a `src/` layout with a `conftest.py` path shim so the
   suite runs without an install; an editable install also works.
@@ -84,4 +107,5 @@ trace artifacts, result tables, or an explicit statement of a limitation.
 
 - `docs/PLAN.md`, `docs/SECURITY_MODEL.md`, `docs/RESULTS.md`
 - `src/code_agent_runtime/sandbox/` (policy, permissions, secret_scanner)
+- `src/code_agent_runtime/agents/llm/` (client, pricing, budget, cache, protocol, agent, claude_client)
 - `src/code_agent_runtime/hygiene.py`, `src/code_agent_runtime/environment.py`

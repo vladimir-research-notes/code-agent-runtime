@@ -12,8 +12,12 @@ Milestone 8 scoring/eval suite (``eval run`` runs a task×agent matrix and
 emits a result file and a Markdown/HTML report; ``eval report`` re-renders a saved
 result file), and the Milestone 9 regression/flakiness tooling (``eval compare``
 diffs two result files into improved/regressed/unchanged/flaky buckets; ``eval
-rerun`` re-runs the matrix N times and reports flaky keys). Later milestones add
-optional model adapters (see ``docs/PLAN.md``).
+rerun`` re-runs the matrix N times and reports flaky keys), and the Milestone 10
+optional cost-controlled LLM adapter (``run --agent llm`` drives a task through a
+model-backed agent; offline by default via a deterministic fake client, with
+``--dry-run`` to preview the request and its cost, and ``--allow-paid`` to opt
+into a real, budget-guarded Claude API run). Later milestones add a Claude Code
+trace importer (see ``docs/PLAN.md``).
 """
 
 from __future__ import annotations
@@ -38,8 +42,8 @@ from . import traces as _traces
 
 # The milestone the runtime currently implements. Kept here so ``info`` can
 # report honest project status without scanning the filesystem.
-CURRENT_MILESTONE = "Milestone 9 — Regression comparison and flakiness analysis"
-NEXT_MILESTONE = "Milestone 10 — Optional cost-controlled LLM adapter"
+CURRENT_MILESTONE = "Milestone 10 — Optional cost-controlled LLM adapter"
+NEXT_MILESTONE = "Milestone 11 — Claude Code trace importer"
 
 #: Default directory the ``tasks`` subcommands scan.
 DEFAULT_TASKS_DIR = "tasks"
@@ -170,12 +174,14 @@ def _add_run_parser(subparsers: argparse._SubParsersAction) -> None:
     )
     p_run.add_argument(
         "--agent",
-        choices=["mock", "scripted", "probe"],
+        choices=["mock", "scripted", "probe", "llm"],
         default="scripted",
         help=(
-            "Which deterministic agent to run (default: scripted). 'probe' replays "
-            "an adversarial sandbox probe (only for tasks that define one, e.g. "
-            "security/unsafe-command-demo)."
+            "Which agent to run (default: scripted). 'probe' replays an adversarial "
+            "sandbox probe (only for tasks that define one). 'llm' runs the optional "
+            "Milestone 10 model-backed agent — offline by default (a deterministic "
+            "fake client that solves tasks with a built-in solution), or against the "
+            "real Claude API with --allow-paid. See the 'LLM adapter' options."
         ),
     )
     p_run.add_argument(
@@ -212,6 +218,64 @@ def _add_run_parser(subparsers: argparse._SubParsersAction) -> None:
         ),
     )
     p_run.add_argument("--json", action="store_true", help="Emit the run result as JSON.")
+
+    llm = p_run.add_argument_group(
+        "LLM adapter (Milestone 10)",
+        "Options for --agent llm. Disabled by default; offline unless --allow-paid.",
+    )
+    llm.add_argument(
+        "--llm-model",
+        default=_agents.DEFAULT_MODEL,
+        metavar="MODEL",
+        help="Model id for the LLM agent (default: %(default)s, the cheapest priced model).",
+    )
+    llm.add_argument(
+        "--max-cost-usd",
+        type=float,
+        default=None,
+        metavar="USD",
+        help=(
+            "Hard budget ceiling in USD. Required with --allow-paid; the guard "
+            "refuses any call whose worst case would exceed it. Offline runs default "
+            "to a generous internal budget."
+        ),
+    )
+    llm.add_argument(
+        "--max-output-tokens",
+        type=int,
+        default=1024,
+        metavar="N",
+        help="max_tokens per model call (also the worst-case output for the cost guard).",
+    )
+    llm.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print the first request and its worst-case cost; make NO calls and spend nothing.",
+    )
+    llm.add_argument(
+        "--allow-paid",
+        action="store_true",
+        help="Opt into a real, paid Claude API run (needs ANTHROPIC_API_KEY and --max-cost-usd).",
+    )
+    llm.add_argument(
+        "--cache-dir",
+        default=None,
+        metavar="PATH",
+        help="Persist/reuse LLM responses under PATH (default: in-memory, per-process).",
+    )
+    llm.add_argument(
+        "--no-cache", action="store_true", help="Disable the response cache entirely."
+    )
+    llm.add_argument(
+        "--no-redact-transcript",
+        action="store_true",
+        help="Do not redact credential-shaped text from the stored/sent transcript (NOT advised).",
+    )
+    llm.add_argument(
+        "--show-transcript",
+        action="store_true",
+        help="Print the (redacted) model transcript after the run.",
+    )
     p_run.set_defaults(func=_cmd_run)
 
 
@@ -589,6 +653,9 @@ def _cmd_run(args: argparse.Namespace) -> int:
         print(str(exc), file=sys.stderr)
         return 1
 
+    if args.agent == "llm":
+        return _run_llm(args, task)
+
     if args.agent == "mock":
         agent: _agents.Agent = _agents.MockAgent()
     elif args.agent == "probe":
@@ -633,6 +700,138 @@ def _cmd_run(args: argparse.Namespace) -> int:
     if result.outcome == _runtime.RunOutcome.FAILED:
         return 1
     return 0
+
+
+def _run_llm(args: argparse.Namespace, task: _tasks.Task) -> int:
+    """Run the optional Milestone 10 LLM agent over ``task``.
+
+    Three paths share one cost guard:
+
+    - ``--dry-run``    — preview the first request and its worst-case cost; make
+      **no** calls and spend nothing.
+    - ``--allow-paid`` — a real, budget-guarded Claude API run (needs
+      ``ANTHROPIC_API_KEY`` and a positive ``--max-cost-usd``).
+    - default          — an **offline** run driven by a deterministic fake client
+      that replays the task's built-in solution through the model wire format, so
+      the whole path is exercised with no API key and no spend.
+    """
+    config = _agents.LLMAgentConfig(model=args.llm_model, max_tokens=args.max_output_tokens)
+
+    # --- dry run: preview only, never construct a client or spend ----------
+    if args.dry_run:
+        budget = (
+            _agents.BudgetGuard(max_cost_usd=args.max_cost_usd)
+            if args.max_cost_usd is not None
+            else None
+        )
+        plan = _agents.dry_run_plan(task, config=config, budget=budget)
+        if args.json:
+            print(json.dumps(plan, indent=2))
+        else:
+            print(_format_dry_run(plan))
+        return 0
+
+    cache = None if args.no_cache else _agents.ResponseCache(args.cache_dir)
+    redact = not args.no_redact_transcript
+
+    if args.allow_paid:
+        if args.max_cost_usd is None or args.max_cost_usd <= 0:
+            print(
+                "--allow-paid requires a positive --max-cost-usd (the hard budget ceiling).",
+                file=sys.stderr,
+            )
+            return 2
+        budget = _agents.BudgetGuard(max_cost_usd=args.max_cost_usd)
+        try:
+            client = _agents.build_claude_client(args.llm_model)
+        except _agents.LLMClientError as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
+        agent: _agents.Agent = _agents.build_llm_agent(
+            task, client, budget=budget, config=config, cache=cache, redact_transcript=redact
+        )
+    else:
+        budget = (
+            _agents.BudgetGuard(max_cost_usd=args.max_cost_usd)
+            if args.max_cost_usd is not None
+            else None
+        )
+        try:
+            agent = _agents.build_fake_llm_agent(
+                task, budget=budget, config=config, cache=cache, redact_transcript=redact
+            )
+        except KeyError as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
+
+    run_config = _runtime.RunConfig(
+        max_steps=args.max_steps,
+        run_tests=not args.no_tests,
+        keep_workspace=args.keep_workspace,
+        enforce_sandbox=not args.no_sandbox,
+    )
+
+    trace = None
+    if args.trace is not None:
+        result, trace = _traces.record_run(task, agent, config=run_config)
+    else:
+        result = _runtime.run_task(task, agent, config=run_config)
+
+    if args.json:
+        print(json.dumps(result.to_dict(), indent=2))
+    else:
+        print(_runtime.format_run_report(result))
+
+    if trace is not None:
+        written = _traces.write_trace(trace, args.trace)
+        print(f"trace written: {written} ({len(trace.events)} events)", file=sys.stderr)
+
+    if args.show_transcript:
+        print("\n--- transcript (redacted) ---", file=sys.stderr)
+        for msg in agent.transcript():
+            print(f"[{msg['role']}] {msg['content']}", file=sys.stderr)
+
+    # Usage to stderr so it never pollutes --json stdout.
+    usage = agent.usage()
+    b = usage["budget"]
+    print(
+        f"llm usage: client={usage['client']} model={usage['model']} "
+        f"calls={b['calls']} refusals={b['refusals']} "
+        f"spent=${b['spent_usd']:.6f} of ${b['max_cost_usd']:.4f} "
+        f"tokens(in/out)={b['input_tokens']}/{b['output_tokens']} "
+        f"redactions={usage['transcript_redactions']}",
+        file=sys.stderr,
+    )
+
+    if result.outcome == _runtime.RunOutcome.ERROR:
+        return 2
+    if result.outcome == _runtime.RunOutcome.FAILED:
+        return 1
+    return 0
+
+
+def _format_dry_run(plan: dict) -> str:
+    """Render a :func:`code_agent_runtime.agents.dry_run_plan` result as text."""
+    b = plan["budget"]
+    lines = [
+        "DRY RUN — no API calls were made and nothing was spent.",
+        f"  task          : {plan['task_id']}",
+        f"  model         : {plan['model']}",
+        f"  max_tokens    : {plan['max_tokens']}",
+        f"  est. input    : ~{plan['estimated_input_tokens']} tokens",
+    ]
+    if plan["priced"]:
+        lines.append(f"  worst-case 1st call : ${plan['worst_case_first_call_usd']:.6f}")
+    else:
+        lines.append(f"  worst-case 1st call : UNPRICED — {plan.get('price_note', '')}")
+    lines.append(f"  budget ceiling      : ${b['max_cost_usd']:.4f}")
+    lines.append("")
+    lines.append("System prompt:")
+    lines += [f"  {line}" for line in plan["system_prompt"].splitlines()]
+    lines.append("")
+    lines.append("First user message:")
+    lines += [f"  {line}" for line in plan["first_user_message"].splitlines()]
+    return "\n".join(lines)
 
 
 def _load_trace_or_report(path: str) -> _traces.Trace | None:

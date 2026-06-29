@@ -1,8 +1,10 @@
 # Evaluation methodology
 
-> **Status:** Milestone 9. Scoring, the suite runner, result reports, and
+> **Status:** Milestone 10. Scoring, the suite runner, result reports, and
 > regression/flakiness analysis are implemented; the deterministic baseline has
-> been run — see [`RESULTS.md`](RESULTS.md).
+> been run — see [`RESULTS.md`](RESULTS.md). The optional cost-controlled LLM
+> adapter adds a model-backed agent that is disabled and offline by default; no
+> paid call is made in tests.
 
 ## Goal
 
@@ -33,7 +35,38 @@ and **honest about uncertainty** — not to produce a leaderboard.
 - **Mock agent** — deterministic, ignores task content; establishes a floor.
 - **Scripted agent** — deterministic, follows a fixed recipe per task; tests the
   harness end-to-end without a model.
-- **Optional LLM / imported runs** — cost-guarded and clearly labeled.
+- **Offline LLM agent (fake client)** — the Milestone 10 `llm` agent driven by a
+  deterministic fake client that replays a task's known-good solution through the
+  model wire format. It exercises the model-backed path — and the budget guard,
+  cache, and transcript redaction — with no API key and no spend. It demonstrates
+  the *harness*, not genuine model reasoning, so it is a plumbing/cost baseline,
+  not a capability measurement.
+- **Optional real LLM / imported runs** — cost-guarded and clearly labeled.
+
+## Cost control for model runs
+
+A real model run is only admissible if its spend is bounded *before* the call.
+The Milestone 10 adapter enforces that with four mechanisms, all exercised offline
+by the fake client:
+
+- **Hard pre-call budget guard.** Each call's worst case — estimated input tokens
+  plus the full `max_tokens` of output, at the model's price — is priced *before*
+  the client is contacted. If it could push cumulative spend past `--max-cost-usd`,
+  the call is refused (`BudgetExceeded`). Actual usage is recorded after the call,
+  so cumulative spend tracks reality and never exceeds the cleared worst case.
+- **Unpriced ⇒ refused.** A model with no price in the table and no explicit
+  override cannot be bounded, so the guard refuses it rather than guessing.
+  Pricing is *approximate published list pricing* and must be verified before a
+  paid run.
+- **Response cache.** Identical requests are served from a content-hash cache for
+  free, so re-runs neither re-spend nor introduce non-determinism.
+- **Transcript redaction.** Credential-shaped text is scrubbed (reusing the
+  sandbox secret scanner) from what is sent to and stored from the model.
+
+A **dry-run** mode (`run --agent llm --dry-run`) prints the first request and its
+estimated worst-case cost while making zero calls — the safe way to preview a paid
+run. The real `ClaudeAPIClient` lazily imports `anthropic`, so neither importing
+the package nor the default test suite requires the SDK or a key.
 
 ## Reproducibility rules
 
@@ -90,9 +123,13 @@ check, not a flake-probability estimate.
       (`reports/`) are implemented and exercised by the baseline in `RESULTS.md`.
 - [x] Regression comparison and flakiness analysis (`scoring/regression.py`,
       `run_repeated`, `eval compare` / `eval rerun`) — Milestone 9.
+- [x] Optional cost-controlled LLM adapter (`agents/llm/`, `run --agent llm`,
+      `--dry-run`, `--allow-paid`) — Milestone 10. Offline by default; no paid
+      call in tests.
 
 ## Relevant files
 
 - `src/code_agent_runtime/scoring/` (incl. `regression.py`), `src/code_agent_runtime/reports/`
-- `scripts/02_generate_report.py`, `scripts/03_regression_demo.py`
+- `src/code_agent_runtime/agents/llm/` (client, pricing, budget, cache, protocol, agent, claude_client)
+- `scripts/02_generate_report.py`, `scripts/03_regression_demo.py`, `scripts/05_llm_adapter_demo.py`
 - `docs/RESEARCH_QUESTIONS.md`, `docs/RESULTS.md`, `docs/PLAN.md`

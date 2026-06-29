@@ -1,11 +1,11 @@
 # Architecture
 
-> **Status:** Milestone 9. Tasks, tools, the runtime loop, structured run
+> **Status:** Milestone 10. Tasks, tools, the runtime loop, structured run
 > tracing, trace replay/summarise tooling, permission policies / sandbox
-> controls, scoring + evaluation reports, and regression comparison + flakiness
-> analysis are implemented; optional model adapters are filled in milestone by
-> milestone (see [`PLAN.md`](PLAN.md)). The component boundaries below are the
-> design target.
+> controls, scoring + evaluation reports, regression comparison + flakiness
+> analysis, and the optional cost-controlled LLM adapter are implemented; the
+> Claude Code trace importer and later milestones follow (see
+> [`PLAN.md`](PLAN.md)). The component boundaries below are the design target.
 
 ## Overview
 
@@ -25,7 +25,7 @@ task ──▶ workspace ──▶ agent loop ──▶ tools ──▶ tests �
 | --- | --- | --- |
 | Tasks | `tasks/` | Load and validate versioned task definitions. |
 | Runtime | `runtime/` | Agent loop, state machine, context, tool dispatch. |
-| Agents | `agents/` | Mock, scripted, human, and optional LLM agents. |
+| Agents | `agents/` | Mock, scripted, probe, and the optional cost-guarded LLM agent (`agents/llm/`). |
 | Tools | `tools/` | Structured file, patch, shell, git, test, search tools. |
 | Sandbox | `sandbox/` | Permission policy, secret scanning, runners. |
 | Traces | `traces/` | Trace schema, recorder, replay, summarization. |
@@ -96,21 +96,29 @@ task ──▶ workspace ──▶ agent loop ──▶ tools ──▶ tests �
       flakiness verdict (`analyze_flakiness`); rerun mode (`run_repeated`),
       Markdown reports, and an `eval compare`/`eval rerun` CLI (Milestone 9). The
       deterministic baseline reports zero flaky keys.
-- [ ] Optional cost-controlled model adapters — pending later milestones.
+- [x] Optional cost-controlled LLM adapter — a model-backed `llm` agent
+      (`agents/llm/`) behind a hard pre-call budget guard (`budget.py`), a
+      response cache (`cache.py`), transcript redaction (reusing the sandbox
+      secret scanner), a wire protocol (`protocol.py`), and a `--dry-run` cost
+      preview; offline by default via a deterministic `FakeLLMClient`, with an
+      opt-in, lazily-imported `ClaudeAPIClient` for a real `run --agent llm
+      --allow-paid` run (Milestone 10). No test makes a paid call.
+- [ ] Claude Code trace importer and later milestones — pending.
 
 ## Relevant files
 
 - `src/code_agent_runtime/__init__.py`, `src/code_agent_runtime/cli.py`
 - `src/code_agent_runtime/tasks/` (schema, loader, fixtures)
 - `src/code_agent_runtime/tools/` (registry, base, seven core tools)
-- `src/code_agent_runtime/agents/` (base, mock, scripted, solutions, probes)
+- `src/code_agent_runtime/agents/` (base, mock, scripted, solutions, probes;
+  `llm/` — client, pricing, budget, cache, protocol, agent, claude_client)
 - `src/code_agent_runtime/runtime/` (state, execution, agent_loop, report)
 - `src/code_agent_runtime/traces/` (schema, recorder, store, replay, summarize)
 - `src/code_agent_runtime/sandbox/` (policy, permissions, secret_scanner)
 - `src/code_agent_runtime/scoring/` (scorer, test/expected_files/diff/custom, suite, regression)
 - `src/code_agent_runtime/reports/` (markdown, html, regression)
 - `tasks/`, `examples/` (example task definitions and fixtures)
-- `scripts/02_generate_report.py`, `scripts/03_regression_demo.py`
+- `scripts/02_generate_report.py`, `scripts/03_regression_demo.py`, `scripts/05_llm_adapter_demo.py`
 - `docs/PLAN.md` (target layout and milestones)
 
 ## Open questions

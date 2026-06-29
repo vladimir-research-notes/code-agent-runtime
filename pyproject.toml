@@ -28,12 +28,15 @@ classifiers = [
   "Topic :: Software Development :: Testing",
 ]
 # Core runtime is intentionally dependency-free so default tests stay CPU-only
-# and free. Optional adapters (e.g. a cost-guarded Claude API agent) will add
-# their own extras in later milestones.
+# and free. The optional cost-guarded Claude API adapter (Milestone 10) adds its
+# own extra; the runtime never imports it unless that adapter is actually used.
 dependencies = []
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0"]
+# Optional, opt-in: the real Claude API client for the Milestone 10 LLM adapter.
+# Not needed for tests or the offline fake-client path. `pip install -e '.[claude]'`.
+claude = ["anthropic>=0.40"]
 
 [project.urls]
 Documentation = "https://github.com/example/code-agent-runtime"
